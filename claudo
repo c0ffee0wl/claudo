@@ -185,12 +185,45 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Validate: --attach doesn't support command override
+# --- Validation ---
+
 if [[ -n "$attach_name" && ${#command_args[@]} -gt 0 ]]; then
     echo "Error: --attach cannot override the container command" >&2
     echo "Use 'docker exec -it claudo-$attach_name ${command_args[*]}' to run a different command" >&2
     exit 1
 fi
+
+if [[ "$tmp_mode" != true && "$current_dir" == *:* ]]; then
+    echo "Error: Directory path contains ':' which breaks Docker volume mounts" >&2
+    echo "Path: $current_dir" >&2
+    echo "Use --tmp mode or rename the directory" >&2
+    exit 1
+fi
+
+# --- Handle attach mode (separate code path) ---
+
+if [[ -n "$attach_name" ]]; then
+    full_name="claudo-$attach_name"
+
+    if ! docker ps -a --format '{{.Names}}' | grep -q "^${full_name}$"; then
+        echo "Error: Container '$full_name' does not exist" >&2
+        echo "Use 'claudo -n $attach_name' to create it first" >&2
+        exit 1
+    fi
+
+    start_args=(start -ai "$full_name")
+
+    if [[ "$verbose" == true ]]; then
+        printf '\e[2mdocker %s\e[0m\n' "${start_args[*]}" >&2
+    fi
+
+    if [[ "$dry_run" != true ]]; then
+        docker "${start_args[@]}"
+    fi
+    exit $?
+fi
+
+# --- Build docker run command ---
 
 # Use -it if stdin is a terminal, otherwise just -i for piped input
 if [[ -t 0 ]]; then
@@ -250,13 +283,6 @@ fi
 if [[ "$tmp_mode" == true ]]; then
     docker_args+=(-w "/workspaces/tmp")
 else
-    # Validate source path doesn't contain colons (breaks Docker -v syntax)
-    if [[ "$current_dir" == *:* ]]; then
-        echo "Error: Directory path contains ':' which breaks Docker volume mounts" >&2
-        echo "Path: $current_dir" >&2
-        echo "Use --tmp mode or rename the directory" >&2
-        exit 1
-    fi
     docker_args+=(-v "$current_dir:/workspaces/$safe_dir_name")
     docker_args+=(-w "/workspaces/$safe_dir_name")
 fi
@@ -319,27 +345,7 @@ if [[ "$dry_run" == true ]]; then
     exit 0
 fi
 
-# Handle attach mode
-if [[ -n "$attach_name" ]]; then
-    full_name="claudo-$attach_name"
-
-    # Check if container exists
-    if ! docker ps -a --format '{{.Names}}' | grep -q "^${full_name}$"; then
-        echo "Error: Container '$full_name' does not exist" >&2
-        echo "Use 'claudo -n $attach_name' to create it first" >&2
-        exit 1
-    fi
-
-    # Build the start command
-    start_args=(start -ai "$full_name")
-
-    if [[ "$verbose" == true ]]; then
-        printf '\e[2mdocker %s\e[0m\n' "${start_args[*]}" >&2
-    fi
-
-    docker "${start_args[@]}"
-    exit $?
-fi
+# --- Execute ---
 
 if [[ "$httpjail_mode" == true ]]; then
     # httpjail --docker-run expects docker run args without 'docker run' prefix
