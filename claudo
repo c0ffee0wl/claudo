@@ -1,0 +1,187 @@
+#!/bin/bash
+
+show_help() {
+    cat << 'EOF'
+claudo - Run Claude Code in a Docker container
+
+Usage: claudo [OPTIONS] [--] [COMMAND...]
+
+Options:
+  --dind          Mount Docker socket for Docker-in-Docker commands
+  -e KEY=VALUE    Set environment variable in container (can be used multiple times)
+  --git           Mount git config (~/.gitconfig and credentials) for committing
+  --host          Use host network mode
+  -i, --image IMG Use specified Docker image (default: $CLAUDO_IMAGE or built-in)
+  -n, --name NAME Create a named container 'claudo-NAME' that persists after exit
+  --no-sudo       Disable sudo (adds no-new-privileges restriction)
+  --sandbox       Drop all capabilities (most restrictive)
+  --tmp           Run isolated (no directory mount, workdir /workspaces/tmp)
+  -v, --verbose   Display docker command before executing
+  -h, --help      Show this help message
+
+Arguments after -- are passed directly as the container command.
+
+Examples:
+  claudo                          Run claude --dangerously-skip-permissions (default)
+  claudo -e API_KEY=xxx           Start with environment variable
+  claudo --host                   Start with host networking
+  claudo -n myproject             Start named persistent container
+  claudo --no-sudo                Start without sudo privileges
+  claudo --sandbox                Start with all caps dropped
+  claudo -- claude --help         Run claude with arguments
+  claudo --dind                   Enable docker commands from inside container
+  claudo --git                    Enable git commits from inside container
+  claudo -i claudo-base:latest    Use a different image
+  claudo -n dev -e DEBUG=1 -- claude
+                                  Combined options with command
+
+The current directory is mounted at /workspaces/<dirname>.
+~/.claude is mounted for authentication persistence.
+EOF
+}
+
+if [[ "$1" == "-h" || "$1" == "--help" ]]; then
+    show_help
+    exit 0
+fi
+
+current_dir=$(pwd)
+dir_name=$(basename "$current_dir")
+
+env_args=()
+network_args=()
+container_name=""
+remove_flag="--rm"
+image="${CLAUDO_IMAGE:-ghcr.io/gregmuellegger/claudo:latest}"
+command_args=()
+tmp_mode=false
+no_sudo=false
+sandbox_mode=false
+git_mode=false
+dind_mode=false
+verbose=false
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --dind)
+            dind_mode=true
+            shift
+            ;;
+        -e)
+            env_args+=("-e" "$2")
+            shift 2
+            ;;
+        --git)
+            git_mode=true
+            shift
+            ;;
+        --host)
+            network_args=("--network" "host")
+            shift
+            ;;
+        -i|--image)
+            image="$2"
+            shift 2
+            ;;
+        -n|--name)
+            container_name="$2"
+            remove_flag=""
+            shift 2
+            ;;
+        --no-sudo)
+            no_sudo=true
+            shift
+            ;;
+        --sandbox)
+            sandbox_mode=true
+            shift
+            ;;
+        --tmp)
+            tmp_mode=true
+            shift
+            ;;
+        -v|--verbose)
+            verbose=true
+            shift
+            ;;
+        --)
+            shift
+            command_args=("$@")
+            break
+            ;;
+        *)
+            command_args+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# Use -it if stdin is a terminal, otherwise just -i for piped input
+if [[ -t 0 ]]; then
+    tty_flag="-it"
+else
+    tty_flag="-i"
+fi
+
+docker_args=(
+    run $tty_flag $remove_flag
+    --hostname claudo
+    -v "$HOME/.claude:/home/claudo/.claude"
+)
+
+# Security: --no-sudo adds no-new-privileges restriction
+if [[ "$no_sudo" == true ]]; then
+    docker_args+=(--security-opt=no-new-privileges:true)
+fi
+
+# Sandbox mode: drop all capabilities
+if [[ "$sandbox_mode" == true ]]; then
+    docker_args+=(--cap-drop=ALL)
+fi
+
+# Git mode: mount git configuration files
+if [[ "$git_mode" == true ]]; then
+    if [[ -f "$HOME/.gitconfig" ]]; then
+        docker_args+=(-v "$HOME/.gitconfig:/home/claudo/.gitconfig:ro")
+    fi
+    if [[ -f "$HOME/.git-credentials" ]]; then
+        docker_args+=(-v "$HOME/.git-credentials:/home/claudo/.git-credentials:ro")
+    fi
+fi
+
+# Docker-in-Docker mode: mount docker socket
+if [[ "$dind_mode" == true ]]; then
+    docker_args+=(-v "/var/run/docker.sock:/var/run/docker.sock")
+fi
+
+if [[ "$tmp_mode" == true ]]; then
+    docker_args+=(-w "/workspaces/tmp")
+else
+    docker_args+=(-v "$current_dir:/workspaces/$dir_name")
+    docker_args+=(-w "/workspaces/$dir_name")
+fi
+
+if [[ -n "$container_name" ]]; then
+    docker_args+=("--name" "claudo-$container_name")
+fi
+
+docker_args+=("${env_args[@]}")
+docker_args+=("${network_args[@]}")
+docker_args+=("$image")
+
+if [[ ${#command_args[@]} -eq 0 ]]; then
+    if [[ -t 0 ]]; then
+        docker_args+=("claude" "--dangerously-skip-permissions")
+    else
+        # Piped input with no command - send to claude -p
+        docker_args+=("claude" "--dangerously-skip-permissions" "-p")
+    fi
+else
+    docker_args+=("${command_args[@]}")
+fi
+
+if [[ "$verbose" == true ]]; then
+    printf '\e[2mdocker %s\e[0m\n' "${docker_args[*]}" >&2
+fi
+
+docker "${docker_args[@]}"
