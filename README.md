@@ -38,15 +38,50 @@ docker run -it --rm --hostname claudo \
 - Custom image support (`-i` or `$CLAUDO_IMAGE`)
 - See the `docker run` command without executing it so you can inspect how it works under the hood (`--dry-run`)
 
+## Usecases
+
+A few things I do regularly with `claudo`:
+
+### Exploring code bases
+
+Exploring a code base. Agents are exceptionally good at exploring code bases quickly. So if you have a question about an undocumented feature, just ask claude to clone the repo and work with it.
+
+E.g.:
+
+1. start `claudo --tmp`
+2. Prompt with something like `Clone https://github.com/leeoniya/uPlot Give me an architectural overview of the library.`
+
+### Chore on your local files
+
+Have a bunch of scanned files with strange filenames?
+
+Ask claudo to rename them appropriately:
+
+```bash
+claudo -p 'This directory contains a set of scanned sheet music. Please read them, find the composer name and the title of the song and rename the files appropriatelly in the format: "<SONG TITLE>, <COMPOSER>, <YEAR> (<MUSICAL KEY>).pdf Skip the year if nothing is mentioned in the PDF.'
+```
+
+### Create one-of scripts
+
+I had the need to geocode a few images. I just asked claude to create a script for this, but since I don't want it to have access to all my images I just placed a `.jpg` for it to work on in a directory and then prompted it to create a bash script to use a free geocoding API.
+
+Boom, worked. Without exposing all my private images to Claude.
+
+I then could use the generated script on all my images without privacy concerns.
+
+This is how these scripts were created: https://gist.github.com/gregmuellegger/3699d8ffb26ea39fb617c6e153f1775f
+
 ## Security Considerations
 
+`claudo` runs inside a docker container. This safeguards from the most obvious attacks. However keep in mind that the code still runs on your local computer, so any security vulnerability in docker might be exploited. Also there are a few specifics about `claudo` that you should be aware of:
+
 - **`~/.claude` is mounted read-write** for authentication persistence. Code running in the container can modify Claude's configuration and credentials.
-- **`--dind` runs in privileged mode.** Required for running Docker daemon inside the container. Provides near-host-level access.
+- **using `--dind` will run docker in privileged mode.** Required for running Docker daemon inside the container. Provides near-host-level access.
 - **`--docker-socket` grants host root equivalent access.** The Docker socket allows full control of the host via Docker. Only use when you trust the code running inside.
 
 The default image used is `ghcr.io/gregmuellegger/claudo:latest`. It is based on Ubuntu 24.04 with Claude Code pre-installed. Includes common dev tools: git, neovim, ripgrep, fd, fzf, jq, tmux, zsh (with oh-my-zsh), uv, and docker-cli.
 
-The image is updated weekly to incorporate latest Ubuntu security patches.
+The image is updated weekly to incorporate latest Ubuntu security patches (using `apt upgrade`). But you need to `claudo --pull` yourself to get the updates.
 
 ## Installation
 
@@ -87,6 +122,7 @@ Usage: claudo [OPTIONS] [--] [COMMAND...]
 
 Options:
   -e KEY=VALUE    Set environment variable in container (can be used multiple times)
+  -p, --prompt PROMPT  Run claude with -p (prompt mode)
   -i, --image IMG Use specified Docker image (default: $CLAUDO_IMAGE or built-in)
   --host          Use host network mode
   --no-sudo       Disable sudo (adds no-new-privileges restriction)
