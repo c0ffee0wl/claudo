@@ -9,6 +9,8 @@ Docker container for running Claude Code in an isolated environment.
 - `entrypoint.sh` - Handles interactive vs piped input, sources zsh config
 - `justfile` - Build and push commands
 - `test.sh` - Test suite for claudo script behavior
+- `.github/workflows` - Github Actions to test and build the docker image
+- `.devcontainer` - devcontainer setup for development
 
 ## Building
 

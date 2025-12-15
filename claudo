@@ -24,6 +24,8 @@ Options:
   -v, --verbose   Display docker command before executing
   --dry-run       Show docker command without executing (implies --verbose)
   --docker-opts OPTS  Pass additional options to docker run
+  --httpjail      Use httpjail to restrict network (allows api.anthropic.com only)
+  --httpjail-opts OPTS  Use httpjail with custom options (replaces default rule)
   -h, --help      Show this help message
 
 Arguments after -- are passed directly as the container command.
@@ -44,6 +46,9 @@ Examples:
   claudo -- claude --help         Run claude with arguments
   claudo -n dev -e DEBUG=1 -- claude
                                   Combined options with command
+  claudo --httpjail             Restrict network to Anthropic API only
+  claudo --httpjail-opts '--js "r.host.endsWith(\".anthropic.com\")"'
+                                  Custom httpjail rule
 
 The current directory is mounted at /workspaces/<dirname>.
 ~/.claude is mounted for authentication persistence.
@@ -79,6 +84,8 @@ pull_mode=false
 verbose=false
 dry_run=false
 docker_opts=""
+httpjail_mode=false
+httpjail_opts=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -150,6 +157,15 @@ while [[ $# -gt 0 ]]; do
             ;;
         --docker-opts)
             docker_opts="$2"
+            shift 2
+            ;;
+        --httpjail)
+            httpjail_mode=true
+            shift
+            ;;
+        --httpjail-opts)
+            httpjail_mode=true
+            httpjail_opts="$2"
             shift 2
             ;;
         --)
@@ -264,8 +280,34 @@ else
     docker_args+=("${command_args[@]}")
 fi
 
+# Check if httpjail is available when needed
+if [[ "$httpjail_mode" == true ]]; then
+    if ! command -v httpjail &> /dev/null; then
+        echo "Error: httpjail not found in PATH" >&2
+        echo "Install httpjail and nftables from https://github.com/coder/httpjail" >&2
+        exit 1
+    fi
+fi
+
+# Build httpjail args if enabled
+httpjail_args=()
+if [[ "$httpjail_mode" == true ]]; then
+    if [[ -n "$httpjail_opts" ]]; then
+        # shellcheck disable=SC2206
+        httpjail_args=($httpjail_opts --docker-run --)
+    else
+        # Default: allow only Anthropic API
+        httpjail_args=(--js 'r.host === "api.anthropic.com"' --docker-run --)
+    fi
+fi
+
 if [[ "$verbose" == true ]]; then
-    printf '\e[2mdocker %s\e[0m\n' "${docker_args[*]}" >&2
+    if [[ "$httpjail_mode" == true ]]; then
+        # httpjail --docker-run expects docker run args without 'docker run' prefix
+        printf '\e[2msudo XDG_CONFIG_HOME=/tmp/httpjail-config httpjail %s %s\e[0m\n' "${httpjail_args[*]}" "${docker_args[*]:1}" >&2
+    else
+        printf '\e[2mdocker %s\e[0m\n' "${docker_args[*]}" >&2
+    fi
 fi
 
 if [[ "$dry_run" == true ]]; then
@@ -294,4 +336,11 @@ if [[ -n "$attach_name" ]]; then
     exit $?
 fi
 
-docker "${docker_args[@]}"
+if [[ "$httpjail_mode" == true ]]; then
+    # httpjail --docker-run expects docker run args without 'docker run' prefix
+    # Skip first element of docker_args (which is 'run')
+    # Use XDG_CONFIG_HOME to store CA cert in world-readable location (not /root)
+    sudo XDG_CONFIG_HOME=/tmp/httpjail-config httpjail "${httpjail_args[@]}" "${docker_args[@]:1}"
+else
+    docker "${docker_args[@]}"
+fi

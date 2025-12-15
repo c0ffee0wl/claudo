@@ -33,6 +33,7 @@ docker run -it --rm --hostname claudo \
 - Host Docker socket mounting (`--docker-socket`) for sibling containers
 - Git config mounting for commits inside container (`--git`)
 - Named persistent containers (`-n`)
+- Restrict network access using [httpjail](https://github.com/coder/httpjail) (`--httpjail`)
 - Security hardening with `--no-sudo` or `--no-privileges`
 - Isolated mode without directory mount (`--tmp`)
 - Custom image support (`-i` or `$CLAUDO_IMAGE`)
@@ -83,9 +84,22 @@ The default image used is `ghcr.io/gregmuellegger/claudo:latest`. It is based on
 
 The image is updated weekly to incorporate latest Ubuntu security patches (using `apt upgrade`). But you need to `claudo --pull` yourself to get the updates.
 
-## Installation
+### Restricting network access with httpjail
 
-Requires Docker.
+By default the claude code can access the public internet as any other process. However coding agents are vulnerable to data exfiltration attacks (e.g. reading sensitive data from your computer and sending it to an untrusted or even malicious thirdparty).
+
+[httpjail](https://github.com/coder/httpjail) is an interesting (yet
+experimental) tool to restrict network access in order to mitigate these attacks.
+
+`claudo` implements support by wrapping the `docker run` call with a `httpjail` call. Then, by default, only `*.anthropic.com` can be reached by any process inside the container. So there is no way to for example download unsafe code from the internet or to send data to other parties via the internet.
+
+This requires httpjail and nftables to be installed.
+
+Use `claudo --httpjail --dry-run` to see what will be executed.
+
+You can use `--httpjail-opts` to pass additional arguments. But you would set the rule engine then yourself. For claude to work it needs access to `*.anthropic.com`.
+
+## Installation
 
 Install by placing the `claudo` script in your `~/.local/bin` directory. Make sure it is on `$PATH`.
 
