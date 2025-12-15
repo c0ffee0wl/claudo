@@ -55,11 +55,6 @@ The current directory is mounted at /workspaces/<dirname>.
 EOF
 }
 
-if [[ "$1" == "-h" || "$1" == "--help" ]]; then
-    show_help
-    exit 0
-fi
-
 current_dir=$(pwd)
 dir_name=$(basename "$current_dir")
 # Sanitize directory name for Docker volume mount (colons break -v syntax)
@@ -167,6 +162,10 @@ while [[ $# -gt 0 ]]; do
             httpjail_mode=true
             httpjail_opts="$2"
             shift 2
+            ;;
+        -h|--help)
+            show_help
+            exit 0
             ;;
         --)
             shift
