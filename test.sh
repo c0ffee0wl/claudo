@@ -116,8 +116,8 @@ fi
 
 # Test: --host network mode
 echo "Testing --host network..."
-# Just verify it doesn't error; full test would require checking network namespace
-./claudo --host -- echo "host network ok" > /dev/null && pass "--host doesn't error" || fail "--host"
+output=$(./claudo --dry-run --host -- echo test 2>&1)
+[[ "$output" == *"--network host"* ]] && pass "--host sets network mode" || fail "--host: $output"
 
 # Test: Named container (create and cleanup)
 echo "Testing --name creates persistent container..."
@@ -137,7 +137,7 @@ output=$(./claudo --docker-socket -- docker version 2>&1 || true)
 
 # Test: --dind sets privileged mode
 echo "Testing --dind uses privileged mode..."
-output=$(./claudo -v --dind -- echo "test" 2>&1 || true)
+output=$(./claudo --dry-run --dind -- echo test 2>&1)
 [[ "$output" == *"--privileged"* ]] && pass "--dind uses privileged mode" || fail "--dind privileged: $output"
 
 # Test: --dind sets DIND_ENABLED env var
