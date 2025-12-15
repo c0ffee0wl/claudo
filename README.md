@@ -42,6 +42,8 @@ claudo                        # run claude interactively
 claudo -- zsh                 # open zsh shell
 claudo -- claude --help       # run claude with args
 echo "fix the bug" | claudo   # pipe prompt to claude
+claudo --dind                 # enable docker commands inside container
+claudo --dind -- docker ps    # run docker ps inside container
 ```
 
 ## Usage
@@ -60,14 +62,14 @@ claudo - Run Claude Code in a Docker container
 Usage: claudo [OPTIONS] [--] [COMMAND...]
 
 Options:
-  --dind          Mount Docker socket for Docker-in-Docker commands
   -e KEY=VALUE    Set environment variable in container (can be used multiple times)
-  --git           Mount git config (~/.gitconfig and credentials) for committing
-  --host          Use host network mode
   -i, --image IMG Use specified Docker image (default: $CLAUDO_IMAGE or built-in)
-  -n, --name NAME Create a named container 'claudo-NAME' that persists after exit
+  --host          Use host network mode
   --no-sudo       Disable sudo (adds no-new-privileges restriction)
   --no-privileges Drop all capabilities (most restrictive)
+  --dind          Mount Docker socket for Docker-in-Docker commands
+  --git           Mount git config (~/.gitconfig and credentials) for committing
+  -n, --name NAME Create a named container 'claudo-NAME' that persists after exit
   --tmp           Run isolated (no directory mount, workdir /workspaces/tmp)
   -v, --verbose   Display docker command before executing
   -h, --help      Show this help message
@@ -77,14 +79,14 @@ Arguments after -- are passed directly as the container command.
 Examples:
   claudo                          Run claude --dangerously-skip-permissions (default)
   claudo -e API_KEY=xxx           Start with environment variable
+  claudo -i claudo-base:latest    Use a different image
   claudo --host                   Start with host networking
-  claudo -n myproject             Start named persistent container
   claudo --no-sudo                Start without sudo privileges
   claudo --no-privileges          Start with all caps dropped
-  claudo -- claude --help         Run claude with arguments
   claudo --dind                   Enable docker commands from inside container
   claudo --git                    Enable git commits from inside container
-  claudo -i claudo-base:latest    Use a different image
+  claudo -n myproject             Start named persistent container
+  claudo -- claude --help         Run claude with arguments
   claudo -n dev -e DEBUG=1 -- claude
                                   Combined options with command
 
