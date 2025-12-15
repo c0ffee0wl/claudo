@@ -1,5 +1,10 @@
 #!/bin/zsh
 
+# Initialize Docker-in-Docker if enabled
+if [[ "$DIND_ENABLED" == "true" ]]; then
+    /home/claudo/.local/bin/docker-init.sh
+fi
+
 if [[ $# -eq 0 ]]; then
     exec /bin/zsh -li
 elif [[ -t 0 ]]; then

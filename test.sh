@@ -125,15 +125,25 @@ echo "Testing --name creates persistent container..."
 docker ps -a --format '{{.Names}}' | grep -q "claudo-testcontainer" && pass "-n creates named container" || fail "-n container"
 docker rm -f claudo-testcontainer > /dev/null 2>&1
 
-# Test: --dind mounts docker socket
-echo "Testing --dind mounts docker socket..."
-output=$(./claudo --dind -- ls -la /var/run/docker.sock 2>&1 || true)
-[[ "$output" == *"docker.sock"* && "$output" != *"No such file"* ]] && pass "--dind mounts docker socket" || fail "--dind socket: $output"
+# Test: --docker-socket mounts docker socket
+echo "Testing --docker-socket mounts docker socket..."
+output=$(./claudo --docker-socket -- ls -la /var/run/docker.sock 2>&1 || true)
+[[ "$output" == *"docker.sock"* && "$output" != *"No such file"* ]] && pass "--docker-socket mounts docker socket" || fail "--docker-socket socket: $output"
 
-# Test: --dind allows docker commands
-echo "Testing --dind allows docker commands..."
-output=$(./claudo --dind -- docker version 2>&1 || true)
-[[ "$output" == *"Version"* || "$output" == *"version"* ]] && pass "--dind docker works" || fail "--dind docker: $output"
+# Test: --docker-socket allows docker commands
+echo "Testing --docker-socket allows docker commands..."
+output=$(./claudo --docker-socket -- docker version 2>&1 || true)
+[[ "$output" == *"Version"* || "$output" == *"version"* ]] && pass "--docker-socket docker works" || fail "--docker-socket docker: $output"
+
+# Test: --dind sets privileged mode
+echo "Testing --dind uses privileged mode..."
+output=$(./claudo -v --dind -- echo "test" 2>&1 || true)
+[[ "$output" == *"--privileged"* ]] && pass "--dind uses privileged mode" || fail "--dind privileged: $output"
+
+# Test: --dind sets DIND_ENABLED env var
+echo "Testing --dind sets DIND_ENABLED..."
+output=$(./claudo --dind -- printenv DIND_ENABLED 2>&1 || true)
+[[ "$output" == *"true"* ]] && pass "--dind sets DIND_ENABLED=true" || fail "--dind env: $output"
 
 # Test: zsh functions are available (via entrypoint sourcing .zshrc)
 echo "Testing zsh config is loaded..."

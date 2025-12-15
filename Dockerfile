@@ -9,7 +9,10 @@ RUN apt-get update && apt-get install -y ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+    docker-ce \
     docker-ce-cli \
+    containerd.io \
+    iptables \
     curl \
     direnv \
     dnsutils \
@@ -32,7 +35,6 @@ RUN userdel -r ubuntu 2>/dev/null || true \
     && groupdel ubuntu 2>/dev/null || true \
     && groupadd -g 1000 claudo \
     && useradd -m -u 1000 -g 1000 -s /bin/zsh claudo \
-    && groupadd -g 999 docker \
     && usermod -aG docker claudo \
     && echo "claudo ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/claudo \
     && chmod 0440 /etc/sudoers.d/claudo
@@ -63,6 +65,7 @@ RUN curl -fsSL https://claude.ai/install.sh | bash
 RUN mkdir -p /home/claudo/.local/bin && ln -s $(which fdfind) /home/claudo/.local/bin/fd
 
 COPY --chown=claudo:claudo entrypoint.sh /home/claudo/.local/bin/entrypoint.sh
-RUN chmod +x /home/claudo/.local/bin/entrypoint.sh
+COPY --chown=claudo:claudo docker-init.sh /home/claudo/.local/bin/docker-init.sh
+RUN chmod +x /home/claudo/.local/bin/entrypoint.sh /home/claudo/.local/bin/docker-init.sh
 
 ENTRYPOINT ["/home/claudo/.local/bin/entrypoint.sh"]

@@ -12,7 +12,8 @@ Options:
   --host          Use host network mode
   --no-sudo       Disable sudo (adds no-new-privileges restriction)
   --no-privileges Drop all capabilities (most restrictive)
-  --dind          Mount Docker socket for Docker-in-Docker commands
+  --dind          Docker-in-Docker (runs dockerd inside container, requires privileged)
+  --docker-socket Mount host Docker socket (sibling containers, host root equivalent)
   --git           Mount git config (~/.gitconfig and credentials) for committing
   -n, --name NAME Create a named container 'claudo-NAME' that persists after exit
   --tmp           Run isolated (no directory mount, workdir /workspaces/tmp)
@@ -28,7 +29,8 @@ Examples:
   claudo --host                   Start with host networking
   claudo --no-sudo                Start without sudo privileges
   claudo --no-privileges          Start with all caps dropped
-  claudo --dind                   Enable docker commands from inside container
+  claudo --dind                   Docker-in-Docker (isolated daemon)
+  claudo --docker-socket          Use host Docker socket (sibling containers)
   claudo --git                    Enable git commits from inside container
   claudo -n myproject             Start named persistent container
   claudo -- claude --help         Run claude with arguments
@@ -61,6 +63,7 @@ no_sudo=false
 no_privileges=false
 git_mode=false
 dind_mode=false
+docker_socket_mode=false
 verbose=false
 
 while [[ $# -gt 0 ]]; do
@@ -87,6 +90,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --dind)
             dind_mode=true
+            shift
+            ;;
+        --docker-socket)
+            docker_socket_mode=true
             shift
             ;;
         --git)
@@ -151,9 +158,16 @@ if [[ "$git_mode" == true ]]; then
     fi
 fi
 
-# Docker-in-Docker mode: mount docker socket
-if [[ "$dind_mode" == true ]]; then
+# Docker socket mode: mount host docker socket (siblings mode)
+if [[ "$docker_socket_mode" == true ]]; then
     docker_args+=(-v "/var/run/docker.sock:/var/run/docker.sock")
+fi
+
+# Docker-in-Docker: run dockerd inside container
+if [[ "$dind_mode" == true ]]; then
+    docker_args+=(--privileged)
+    docker_args+=(-e "DIND_ENABLED=true")
+    docker_args+=(-v "claudo-dind-storage:/var/lib/docker")
 fi
 
 if [[ "$tmp_mode" == true ]]; then

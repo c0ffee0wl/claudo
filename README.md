@@ -24,7 +24,8 @@ docker run -it --rm --hostname claudo -v $HOME/.claude:/home/claudo/.claude -v $
 
 - Mounts the current directory into `/workspaces/`
 - Mounts `~/.claude` for authentication persistence (no re-login required)
-- Docker-in-Docker support (`--dind`)
+- Docker-in-Docker support (`--dind`) with isolated daemon
+- Host Docker socket mounting (`--docker-socket`) for sibling containers
 - Git config mounting for commits inside container (`--git`)
 - Named persistent containers (`-n`)
 - Security hardening with `--no-sudo` or `--no-privileges`
@@ -34,7 +35,8 @@ docker run -it --rm --hostname claudo -v $HOME/.claude:/home/claudo/.claude -v $
 ## Security Considerations
 
 - **`~/.claude` is mounted read-write** for authentication persistence. Code running in the container can modify Claude's configuration and credentials.
-- **`--dind` grants host root equivalent access.** The Docker socket allows full control of the host via Docker. Only use when you trust the code running inside.
+- **`--dind` runs in privileged mode.** Required for running Docker daemon inside the container. Provides near-host-level access.
+- **`--docker-socket` grants host root equivalent access.** The Docker socket allows full control of the host via Docker. Only use when you trust the code running inside.
 
 The default image used is `ghcr.io/gregmuellegger/claudo:latest`. It is based on Ubuntu 24.04 with Claude Code pre-installed. Includes common dev tools: git, neovim, ripgrep, fd, fzf, jq, tmux, zsh (with oh-my-zsh), uv, and docker-cli.
 
@@ -57,8 +59,9 @@ claudo                        # run claude interactively
 claudo -- zsh                 # open zsh shell
 claudo -- claude --help       # run claude with args
 echo "fix the bug" | claudo   # pipe prompt to claude
-claudo --dind                 # enable docker commands inside container
-claudo --dind -- docker ps    # run docker ps inside container
+claudo --dind                 # Docker-in-Docker (isolated daemon)
+claudo --docker-socket        # use host Docker socket (sibling containers)
+claudo --dind -- docker ps    # run docker ps with isolated daemon
 ```
 
 ## Usage
@@ -82,7 +85,8 @@ Options:
   --host          Use host network mode
   --no-sudo       Disable sudo (adds no-new-privileges restriction)
   --no-privileges Drop all capabilities (most restrictive)
-  --dind          Mount Docker socket for Docker-in-Docker commands
+  --dind          Docker-in-Docker (runs dockerd inside container, requires privileged)
+  --docker-socket Mount host Docker socket (sibling containers, host root equivalent)
   --git           Mount git config (~/.gitconfig and credentials) for committing
   -n, --name NAME Create a named container 'claudo-NAME' that persists after exit
   --tmp           Run isolated (no directory mount, workdir /workspaces/tmp)
@@ -98,7 +102,8 @@ Examples:
   claudo --host                   Start with host networking
   claudo --no-sudo                Start without sudo privileges
   claudo --no-privileges          Start with all caps dropped
-  claudo --dind                   Enable docker commands from inside container
+  claudo --dind                   Docker-in-Docker (isolated daemon)
+  claudo --docker-socket          Use host Docker socket (sibling containers)
   claudo --git                    Enable git commits from inside container
   claudo -n myproject             Start named persistent container
   claudo -- claude --help         Run claude with arguments
