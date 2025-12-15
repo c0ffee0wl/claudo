@@ -36,6 +36,7 @@ docker run -it --rm --hostname claudo \
 - Security hardening with `--no-sudo` or `--no-privileges`
 - Isolated mode without directory mount (`--tmp`)
 - Custom image support (`-i` or `$CLAUDO_IMAGE`)
+- See the `docker run` command without executing it so you can inspect how it works under the hood (`--dry-run`)
 
 ## Security Considerations
 
@@ -93,9 +94,11 @@ Options:
   --dind          Docker-in-Docker (runs dockerd inside container, requires privileged)
   --docker-socket Mount host Docker socket (sibling containers, host root equivalent)
   --git           Mount git config (~/.gitconfig and credentials) for committing
+  --pull          Always pull the latest image before running
   -n, --name NAME Create a named container 'claudo-NAME' that persists after exit
   --tmp           Run isolated (no directory mount, workdir /workspaces/tmp)
   -v, --verbose   Display docker command before executing
+  --dry-run       Show docker command without executing (implies --verbose)
   -h, --help      Show this help message
 
 Arguments after -- are passed directly as the container command.

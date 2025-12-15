@@ -15,9 +15,11 @@ Options:
   --dind          Docker-in-Docker (runs dockerd inside container, requires privileged)
   --docker-socket Mount host Docker socket (sibling containers, host root equivalent)
   --git           Mount git config (~/.gitconfig and credentials) for committing
+  --pull          Always pull the latest image before running
   -n, --name NAME Create a named container 'claudo-NAME' that persists after exit
   --tmp           Run isolated (no directory mount, workdir /workspaces/tmp)
   -v, --verbose   Display docker command before executing
+  --dry-run       Show docker command without executing (implies --verbose)
   -h, --help      Show this help message
 
 Arguments after -- are passed directly as the container command.
@@ -64,7 +66,9 @@ no_privileges=false
 git_mode=false
 dind_mode=false
 docker_socket_mode=false
+pull_mode=false
 verbose=false
+dry_run=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -96,6 +100,10 @@ while [[ $# -gt 0 ]]; do
             docker_socket_mode=true
             shift
             ;;
+        --pull)
+            pull_mode=true
+            shift
+            ;;
         --git)
             git_mode=true
             shift
@@ -110,6 +118,11 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         -v|--verbose)
+            verbose=true
+            shift
+            ;;
+        --dry-run)
+            dry_run=true
             verbose=true
             shift
             ;;
@@ -146,6 +159,11 @@ fi
 # No privileges mode: drop all capabilities
 if [[ "$no_privileges" == true ]]; then
     docker_args+=(--cap-drop=ALL)
+fi
+
+# Pull mode: always pull latest image
+if [[ "$pull_mode" == true ]]; then
+    docker_args+=(--pull=always)
 fi
 
 # Git mode: mount git configuration files
@@ -205,6 +223,10 @@ fi
 
 if [[ "$verbose" == true ]]; then
     printf '\e[2mdocker %s\e[0m\n' "${docker_args[*]}" >&2
+fi
+
+if [[ "$dry_run" == true ]]; then
+    exit 0
 fi
 
 docker "${docker_args[@]}"
