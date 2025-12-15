@@ -1,6 +1,6 @@
 # claudo
 
-**claudo** = **claud**e in **do**cker
+**claudo** = **clau**de in **do**cker / (**claudō**, [latin for "to restrict", "to imprison"](https://en.wiktionary.org/wiki/claudo))
 
 Run Claude Code inside a Docker container for isolation, mounting the current
 directory for easy access to your project.
