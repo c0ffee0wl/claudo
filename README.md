@@ -12,10 +12,15 @@ To develop with claude code, I would usually setup a devcontainer environment to
 
 `claudo` does that, by running `claude --dangerously-skip-permissions` in a docker container.
 
-At its core `claudo` is a shortcut for (with a few more additional features, see below):
+At its core `claudo` is a shortcut that translates into this (plus a few more additional features, see below):
 
 ```bash
-docker run -it --rm --hostname claudo -v $HOME/.claude:/home/claudo/.claude -v $PWD:/workspaces/$(basename $PWD) -w /workspaces/$(basename $PWD) ghcr.io/gregmuellegger/claudo:latest claude --dangerously-skip-permissions
+docker run -it --rm --hostname claudo \
+    -v $HOME/.claude:/home/claudo/.claude \
+    -v $PWD:/workspaces/$(basename $PWD) \
+    -w /workspaces/$(basename $PWD) \
+    ghcr.io/gregmuellegger/claudo:latest \
+    claude --dangerously-skip-permissions
 ```
 
 ![claudo demo](demo/demo.gif)
