@@ -48,6 +48,7 @@ RUN userdel -r ubuntu 2>/dev/null || true \
     && groupdel ubuntu 2>/dev/null || true \
     && groupadd -g 1000 claudo \
     && useradd -m -u 1000 -g 1000 -s /bin/zsh claudo \
+    && groupadd -g 999 docker \
     && usermod -aG docker claudo \
     && echo "claudo ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/claudo \
     && chmod 0440 /etc/sudoers.d/claudo
