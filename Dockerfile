@@ -73,9 +73,11 @@ RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Install Python packages not available in repos
+# Install Python packages not available in repos (needs root for --system)
+USER root
 RUN /home/claudo/.local/bin/uv pip install --system --break-system-packages \
     pypdf pdfplumber pytesseract pdf2image python-pptx
+USER claudo
 
 # Install markitdown CLI tool
 RUN /home/claudo/.local/bin/uv tool install "markitdown[pptx]"
