@@ -10,7 +10,6 @@ Docker container for running Claude Code in an isolated environment.
 - `justfile` - Build and push commands
 - `test.sh` - Test suite for claudo script behavior
 - `.github/workflows` - Github Actions to test and build the docker image
-- `.devcontainer` - devcontainer setup for development
 
 ## Building
 
@@ -35,4 +34,3 @@ just update-readme  # runs cogapp on the README.md
 - All `claudo` options must be documented in `claudo --help`
 - New behavior must be tested in `./test.sh`
 - Tests must not invoke `claude` in the container
-- When new dependencies for development are required, add them to `.devcontainer/postCreate.sh`
