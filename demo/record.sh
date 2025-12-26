@@ -19,7 +19,7 @@ run '# Install claudo'
 # Show shortened URL, run real one
 echo '$ curl -fsSL .../claudo -o ~/.local/bin/claudo && chmod +x ~/.local/bin/claudo'
 sleep 0.5
-curl -fsSL https://raw.githubusercontent.com/gregmuellegger/claudo/main/claudo -o ~/.local/bin/claudo && chmod +x ~/.local/bin/claudo
+curl -fsSL https://raw.githubusercontent.com/c0ffee0wl/claudo/main/claudo -o ~/.local/bin/claudo && chmod +x ~/.local/bin/claudo
 sleep 1
 
 run 'pwd'

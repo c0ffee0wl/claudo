@@ -135,16 +135,6 @@ echo "Testing --docker-socket allows docker commands..."
 output=$(./claudo --docker-socket -- docker version 2>&1 || true)
 [[ "$output" == *"Version"* || "$output" == *"version"* ]] && pass "--docker-socket docker works" || fail "--docker-socket docker: $output"
 
-# Test: --dind sets privileged mode
-echo "Testing --dind uses privileged mode..."
-output=$(./claudo --dry-run --dind -- echo test 2>&1)
-[[ "$output" == *"--privileged"* ]] && pass "--dind uses privileged mode" || fail "--dind privileged: $output"
-
-# Test: --dind sets DIND_ENABLED env var
-echo "Testing --dind sets DIND_ENABLED..."
-output=$(./claudo --dind -- printenv DIND_ENABLED 2>&1 || true)
-[[ "$output" == *"true"* ]] && pass "--dind sets DIND_ENABLED=true" || fail "--dind env: $output"
-
 # Test: --prompt passes -p to claude
 echo "Testing --prompt passes -p to claude..."
 output=$(./claudo --dry-run --prompt "hello world" 2>&1)

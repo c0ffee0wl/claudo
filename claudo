@@ -14,7 +14,6 @@ Options:
   --no-sudo       Disable sudo (adds no-new-privileges restriction)
   --no-privileges Drop all capabilities (most restrictive)
   --no-network    Disable network access (breaks Claude Code)
-  --dind          Docker-in-Docker (runs dockerd inside container, requires privileged)
   --docker-socket Mount host Docker socket (sibling containers, host root equivalent)
   --git           Mount git config (~/.gitconfig and credentials) for committing
   --pull          Always pull the latest image before running
@@ -38,7 +37,6 @@ Examples:
   claudo --no-sudo                Start without sudo privileges
   claudo --no-privileges          Start with all caps dropped
   claudo --no-network             Start without network access
-  claudo --dind                   Docker-in-Docker (isolated daemon)
   claudo --docker-socket          Use host Docker socket (sibling containers)
   claudo --git                    Enable git commits from inside container
   claudo -n myproject             Start named persistent container
@@ -66,14 +64,13 @@ prompt_arg=""
 container_name=""
 attach_name=""
 remove_flag="--rm"
-image="${CLAUDO_IMAGE:-ghcr.io/gregmuellegger/claudo:latest}"
+image="${CLAUDO_IMAGE:-ghcr.io/c0ffee0wl/claudo:latest}"
 command_args=()
 tmp_mode=false
 no_sudo=false
 no_privileges=false
 no_network=false
 git_mode=false
-dind_mode=false
 docker_socket_mode=false
 pull_mode=false
 verbose=false
@@ -110,10 +107,6 @@ while [[ $# -gt 0 ]]; do
             ;;
         --no-network)
             no_network=true
-            shift
-            ;;
-        --dind)
-            dind_mode=true
             shift
             ;;
         --docker-socket)
@@ -272,12 +265,6 @@ if [[ "$docker_socket_mode" == true ]]; then
     docker_args+=(-v "/var/run/docker.sock:/var/run/docker.sock")
 fi
 
-# Docker-in-Docker: run dockerd inside container
-if [[ "$dind_mode" == true ]]; then
-    docker_args+=(--privileged)
-    docker_args+=(-e "DIND_ENABLED=true")
-    docker_args+=(-v "claudo-dind-storage:/var/lib/docker")
-fi
 
 if [[ "$tmp_mode" == true ]]; then
     docker_args+=(-w "/workspaces/tmp")

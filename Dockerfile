@@ -12,9 +12,7 @@ RUN apt-get update && apt-get install -y ca-certificates curl \
     && rm -rf /var/lib/apt/lists/*
 
 RUN apt-get update && apt-get upgrade -y && apt-get install -y \
-    docker-ce \
     docker-ce-cli \
-    containerd.io \
     iptables \
     curl \
     direnv \
@@ -24,7 +22,6 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     git \
     iputils-ping \
     jq \
-    neovim \
     ripgrep \
     sudo \
     tmux \
@@ -32,6 +29,19 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     zsh \
     # Required for claude to be installed
     libatomic1 \
+    # Document processing dependencies
+    python3-reportlab \
+    python3-pandas \
+    python3-defusedxml \
+    python3-openpyxl \
+    python3-lxml \
+    python3-pil \
+    python3-six \
+    python3-yaml \
+    pandoc \
+    poppler-utils \
+    qpdf \
+    tesseract-ocr \
     && rm -rf /var/lib/apt/lists/*
 
 RUN userdel -r ubuntu 2>/dev/null || true \
@@ -62,6 +72,13 @@ RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
+# Install Python packages not available in repos
+RUN /home/claudo/.local/bin/uv pip install --system --break-system-packages \
+    pypdf pdfplumber pytesseract pdf2image python-pptx
+
+# Install markitdown CLI tool
+RUN /home/claudo/.local/bin/uv tool install "markitdown[pptx]"
+
 # Install Claude Code
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
@@ -69,7 +86,6 @@ RUN curl -fsSL https://claude.ai/install.sh | bash
 RUN mkdir -p /home/claudo/.local/bin && ln -s $(which fdfind) /home/claudo/.local/bin/fd
 
 COPY --chown=claudo:claudo entrypoint.sh /home/claudo/.local/bin/entrypoint.sh
-COPY --chown=claudo:claudo docker-init.sh /home/claudo/.local/bin/docker-init.sh
-RUN chmod +x /home/claudo/.local/bin/entrypoint.sh /home/claudo/.local/bin/docker-init.sh
+RUN chmod +x /home/claudo/.local/bin/entrypoint.sh
 
 ENTRYPOINT ["/home/claudo/.local/bin/entrypoint.sh"]

@@ -19,7 +19,7 @@ docker run -it --rm --hostname claudo \
     -v $HOME/.claude:/home/claudo/.claude \
     -v $PWD:/workspaces/$(basename $PWD) \
     -w /workspaces/$(basename $PWD) \
-    ghcr.io/gregmuellegger/claudo:latest \
+    ghcr.io/c0ffee0wl/claudo:latest \
     claude --dangerously-skip-permissions
 ```
 
@@ -29,7 +29,6 @@ docker run -it --rm --hostname claudo \
 
 - Mounts the current directory into `/workspaces/`
 - Mounts `~/.claude` for authentication persistence (no re-login required)
-- Docker-in-Docker support (`--dind`) with isolated daemon
 - Host Docker socket mounting (`--docker-socket`) for sibling containers
 - Git config mounting for commits inside container (`--git`)
 - Named persistent containers (`-n`)
@@ -77,10 +76,9 @@ This is how these scripts were created: https://gist.github.com/gregmuellegger/3
 `claudo` runs inside a docker container. This safeguards from the most obvious attacks. However keep in mind that the code still runs on your local computer, so any security vulnerability in docker might be exploited. Also there are a few specifics about `claudo` that you should be aware of:
 
 - **`~/.claude` is mounted read-write** for authentication persistence. Code running in the container can modify Claude's configuration and credentials.
-- **using `--dind` will run docker in privileged mode.** Required for running Docker daemon inside the container. Provides near-host-level access.
 - **`--docker-socket` grants host root equivalent access.** The Docker socket allows full control of the host via Docker. Only use when you trust the code running inside.
 
-The default image used is `ghcr.io/gregmuellegger/claudo:latest`. It is based on Ubuntu 24.04 with Claude Code pre-installed. Includes common dev tools: git, neovim, ripgrep, fd, fzf, jq, tmux, zsh (with oh-my-zsh), uv, and docker-cli.
+The default image used is `ghcr.io/c0ffee0wl/claudo:latest`. It is based on Ubuntu 24.04 with Claude Code pre-installed. Includes common dev tools: git, ripgrep, fd, fzf, jq, tmux, zsh (with oh-my-zsh), uv, and docker-cli.
 
 The image is updated weekly to incorporate latest Ubuntu security patches (using `apt upgrade`). But you need to `claudo --pull` yourself to get the updates.
 
@@ -104,7 +102,7 @@ You can use `--httpjail-opts` to pass additional arguments. But you would set th
 Install by placing the `claudo` script in your `~/.local/bin` directory. Make sure it is on `$PATH`.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gregmuellegger/claudo/main/claudo -o ~/.local/bin/claudo && chmod +x ~/.local/bin/claudo
+curl -fsSL https://raw.githubusercontent.com/c0ffee0wl/claudo/main/claudo -o ~/.local/bin/claudo && chmod +x ~/.local/bin/claudo
 ```
 
 ## Examples
@@ -114,9 +112,7 @@ claudo                        # run claude interactively
 claudo -- zsh                 # open zsh shell
 claudo -- claude --help       # run claude with args
 echo "fix the bug" | claudo   # pipe prompt to claude
-claudo --dind                 # Docker-in-Docker (isolated daemon)
 claudo --docker-socket        # use host Docker socket (sibling containers)
-claudo --dind -- docker ps    # run docker ps with isolated daemon
 ```
 
 ## Usage
@@ -142,7 +138,6 @@ Options:
   --no-sudo       Disable sudo (adds no-new-privileges restriction)
   --no-privileges Drop all capabilities (most restrictive)
   --no-network    Disable network access (breaks Claude Code)
-  --dind          Docker-in-Docker (runs dockerd inside container, requires privileged)
   --docker-socket Mount host Docker socket (sibling containers, host root equivalent)
   --git           Mount git config (~/.gitconfig and credentials) for committing
   --pull          Always pull the latest image before running
@@ -164,7 +159,6 @@ Examples:
   claudo --no-sudo                Start without sudo privileges
   claudo --no-privileges          Start with all caps dropped
   claudo --no-network             Start without network access
-  claudo --dind                   Docker-in-Docker (isolated daemon)
   claudo --docker-socket          Use host Docker socket (sibling containers)
   claudo --git                    Enable git commits from inside container
   claudo -n myproject             Start named persistent container
@@ -192,8 +186,8 @@ Another alternative is to install the `claudo` script and during installation
 adjust the used image name:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/gregmuellegger/claudo/main/claudo | \
-  sed 's|ghcr.io/gregmuellegger/claudo:latest|<YOUR-IMAGE-HERE>:latest|' | \
+curl -fsSL https://raw.githubusercontent.com/c0ffee0wl/claudo/main/claudo | \
+  sed 's|ghcr.io/c0ffee0wl/claudo:latest|<YOUR-IMAGE-HERE>:latest|' | \
   tee ~/.local/bin/claudo > /dev/null && chmod +x ~/.local/bin/claudo
 ```
 
@@ -203,7 +197,6 @@ Your image must fulfill these requirements:
 - User home directory at `/home/claudo` (for mounting `~/.claude`)
 - `/workspaces/` directory exists (for working directory mounts)
 - For `--tmp` to work: `/workspaces/tmp/` needs to exist and writable for `claudo` user
-- For `--dind` to work: docker daemon must be installed and `docker-init.sh` needs to be setup (see `Dockerfile`)
 
 ### Forking
 
