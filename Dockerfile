@@ -24,7 +24,6 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     jq \
     ripgrep \
     sudo \
-    tmux \
     wget \
     zsh \
     # Required for claude to be installed
@@ -67,16 +66,13 @@ USER root
 RUN mkdir -p /workspaces/tmp && chown claudo:claudo /workspaces/tmp
 USER claudo
 
-# Install oh-my-zsh
-RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
-
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install Python packages not available in repos (needs root for --system)
 USER root
 RUN /home/claudo/.local/bin/uv pip install --system --break-system-packages \
-    pypdf pdfplumber pytesseract pdf2image python-pptx
+    pypdf pdfplumber pytesseract pdf2image python-pptx python-docx
 USER claudo
 
 # Install markitdown CLI tool
