@@ -66,6 +66,9 @@ USER root
 RUN mkdir -p /workspaces/tmp && chown claudo:claudo /workspaces/tmp
 USER claudo
 
+# Install oh-my-zsh
+RUN sh -c "$(curl -fsSL https://raw.githubusercontent.com/ohmyzsh/ohmyzsh/master/tools/install.sh)" "" --unattended
+
 # Install uv
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
