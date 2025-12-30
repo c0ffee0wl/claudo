@@ -53,6 +53,10 @@ Examples:
 The current directory is mounted at /workspaces/<dirname>.
 ~/.claudo is mounted for container config (separate from host ~/.claude).
 ~/.claude/skills is shared read-only from the host.
+
+LLM API environment variables are automatically passed through if set:
+  ANTHROPIC_API_KEY, OPENAI_API_KEY, AZURE_OPENAI_API_KEY, GOOGLE_API_KEY,
+  GEMINI_API_KEY, MISTRAL_API_KEY, GROQ_API_KEY, and others (AWS, HuggingFace, etc.)
 EOF
 }
 
@@ -246,6 +250,22 @@ docker_args=(
     -v "$HOME/.claudo:/home/claudo/.claude"
     -v "$HOME/.claude/skills:/home/claudo/.claude/skills:ro"
 )
+
+# Auto-passthrough LLM API environment variables from host
+for var in ANTHROPIC_API_KEY ANTHROPIC_MODEL \
+           OPENAI_API_KEY OPENAI_API_BASE OPENAI_ORG_ID \
+           AZURE_OPENAI_API_KEY AZURE_OPENAI_ENDPOINT AZURE_OPENAI_API_VERSION \
+           GOOGLE_API_KEY GOOGLE_APPLICATION_CREDENTIALS GEMINI_API_KEY \
+           MISTRAL_API_KEY COHERE_API_KEY HUGGINGFACE_API_KEY HF_TOKEN \
+           GROQ_API_KEY TOGETHER_API_KEY REPLICATE_API_TOKEN \
+           PERPLEXITY_API_KEY FIREWORKS_API_KEY DEEPSEEK_API_KEY \
+           AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY AWS_SESSION_TOKEN AWS_REGION AWS_DEFAULT_REGION \
+           CLAUDE_CODE_USE_BEDROCK CLAUDE_CODE_USE_VERTEX CLOUD_ML_REGION \
+           CLAUDE_CODE_MAX_OUTPUT_TOKENS CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC; do
+    if [[ -n "${!var:-}" ]]; then
+        docker_args+=(-e "$var=${!var}")
+    fi
+done
 
 # Security: --no-sudo adds no-new-privileges restriction
 if [[ "$no_sudo" == true ]]; then
