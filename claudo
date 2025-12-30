@@ -27,7 +27,7 @@ Options:
   --httpjail-opts OPTS  Use httpjail with custom options (replaces default rule)
   -h, --help      Show this help message
 
-Arguments after -- are passed directly as the container command.
+Arguments after -- are passed to claude if they start with -, otherwise as the container command.
 
 Examples:
   claudo                          Run claude --dangerously-skip-permissions (default)
@@ -41,9 +41,11 @@ Examples:
   claudo --git                    Enable git commits from inside container
   claudo -n myproject             Start named persistent container
   claudo -a myproject             Attach to existing container
-  claudo -- claude --help         Run claude with arguments
-  claudo -n dev -e DEBUG=1 -- claude
-                                  Combined options with command
+  claudo -- --resume              Resume a conversation (shows picker)
+  claudo -- --resume last         Resume the last conversation
+  claudo -- -c                    Continue the most recent conversation
+  claudo -- zsh                   Run zsh instead of claude
+  claudo -n dev -e DEBUG=1 -- -c  Combined options with claude flags
   claudo --httpjail             Restrict network to Anthropic API only
   claudo --httpjail-opts '--js "r.host.endsWith(\".anthropic.com\")"'
                                   Custom httpjail rule
@@ -309,7 +311,12 @@ elif [[ ${#command_args[@]} -eq 0 ]]; then
         docker_args+=("claude" "--dangerously-skip-permissions" "-p")
     fi
 else
-    docker_args+=("${command_args[@]}")
+    # If first arg starts with -, treat as claude flags and prepend default command
+    if [[ "${command_args[0]}" == -* ]]; then
+        docker_args+=("claude" "--dangerously-skip-permissions" "${command_args[@]}")
+    else
+        docker_args+=("${command_args[@]}")
+    fi
 fi
 
 # Check if httpjail is available when needed

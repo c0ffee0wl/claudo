@@ -247,6 +247,26 @@ echo "Testing --httpjail errors if httpjail not found..."
 output=$(PATH=/usr/bin:/bin ./claudo --httpjail -- echo test 2>&1 || true)
 [[ "$output" == *"httpjail"* && "$output" == *"not found"* && "$output" == *"nftables"* && "$output" == *"github.com/coder/httpjail"* ]] && pass "--httpjail missing error" || fail "--httpjail missing: $output"
 
+# Test: -- with flag args passes to default claude command
+echo "Testing -- with flags passes to claude..."
+output=$(./claudo --dry-run -- --resume 2>&1)
+[[ "$output" == *"claude --dangerously-skip-permissions --resume"* ]] && pass "-- --resume passes to claude" || fail "-- --resume: $output"
+
+# Test: -- with multiple flags passes to default claude command
+echo "Testing -- with multiple flags passes to claude..."
+output=$(./claudo --dry-run -- --resume last 2>&1)
+[[ "$output" == *"claude --dangerously-skip-permissions --resume last"* ]] && pass "-- --resume last passes to claude" || fail "-- --resume last: $output"
+
+# Test: -- with -c flag passes to default claude command
+echo "Testing -- with -c flag passes to claude..."
+output=$(./claudo --dry-run -- -c 2>&1)
+[[ "$output" == *"claude --dangerously-skip-permissions -c"* ]] && pass "-- -c passes to claude" || fail "-- -c: $output"
+
+# Test: -- with non-flag arg still runs that command
+echo "Testing -- with command still runs command..."
+output=$(./claudo --dry-run -- zsh 2>&1)
+[[ "$output" == *"zsh"* && "$output" != *"claude --dangerously-skip-permissions zsh"* ]] && pass "-- zsh runs zsh" || fail "-- zsh: $output"
+
 # Test: Unknown long option is rejected
 echo "Testing unknown long option is rejected..."
 output=$(./claudo --unknown-option 2>&1 || true)
