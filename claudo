@@ -49,7 +49,8 @@ Examples:
                                   Custom httpjail rule
 
 The current directory is mounted at /workspaces/<dirname>.
-~/.claude is mounted for authentication persistence.
+~/.claudo is mounted for container config (separate from host ~/.claude).
+~/.claude/skills is shared read-only from the host.
 EOF
 }
 
@@ -192,6 +193,19 @@ if [[ "$tmp_mode" != true && "$current_dir" == *:* ]]; then
     exit 1
 fi
 
+# Fix permissions if host user is not UID 1000 and in /home or /opt
+if [[ "$tmp_mode" != true && $(id -u) -ne 1000 ]]; then
+    if [[ "$current_dir" == /home/* || "$current_dir" == /opt/* ]]; then
+        echo "Fixing permissions: sudo chown -R 1000:1000 $current_dir" >&2
+        sudo chown -R 1000:1000 "$current_dir"
+    fi
+fi
+
+# Add git safe directory if in a git repo
+if [[ "$tmp_mode" != true && -d "$current_dir/.git" ]]; then
+    git config --global --add safe.directory "$current_dir" 2>/dev/null || true
+fi
+
 # --- Handle attach mode (separate code path) ---
 
 if [[ -n "$attach_name" ]]; then
@@ -227,7 +241,8 @@ fi
 docker_args=(
     run $tty_flag $remove_flag
     --hostname claudo
-    -v "$HOME/.claude:/home/claudo/.claude"
+    -v "$HOME/.claudo:/home/claudo/.claude"
+    -v "$HOME/.claude/skills:/home/claudo/.claude/skills:ro"
 )
 
 # Security: --no-sudo adds no-new-privileges restriction
