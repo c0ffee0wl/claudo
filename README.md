@@ -16,12 +16,15 @@ At its core `claudo` is a shortcut that translates into this (plus a few more ad
 
 ```bash
 docker run -it --rm --hostname claudo \
-    -v $HOME/.claude:/home/claudo/.claude \
+    -v $HOME/.claudo:/home/claudo/.claude \
+    -v $HOME/.claude/skills:/home/claudo/.claude/skills:ro \
     -v $PWD:/workspaces/$(basename $PWD) \
     -w /workspaces/$(basename $PWD) \
     ghcr.io/c0ffee0wl/claudo:latest \
     claude --dangerously-skip-permissions
 ```
+
+Note: The container uses `~/.claudo` (not `~/.claude`) on the host for its config, keeping it separate from your host Claude Code installation. Skills are shared read-only from the host.
 
 ![claudo demo](demo/demo.gif)
 
@@ -75,10 +78,10 @@ This is how these scripts were created: https://gist.github.com/gregmuellegger/3
 
 `claudo` runs inside a docker container. This safeguards from the most obvious attacks. However keep in mind that the code still runs on your local computer, so any security vulnerability in docker might be exploited. Also there are a few specifics about `claudo` that you should be aware of:
 
-- **`~/.claude` is mounted read-write** for authentication persistence. Code running in the container can modify Claude's configuration and credentials.
+- **`~/.claudo` is mounted read-write** as the container's Claude config directory. Code running in the container can modify this configuration. Your host's `~/.claude` is not directly exposed (only skills are shared read-only).
 - **`--docker-socket` grants host root equivalent access.** The Docker socket allows full control of the host via Docker. Only use when you trust the code running inside.
 
-The default image used is `ghcr.io/c0ffee0wl/claudo:latest`. It is based on Ubuntu 24.04 with Claude Code pre-installed. Includes common dev tools: git, ripgrep, fd, fzf, jq, tmux, zsh (with oh-my-zsh), uv, and docker-cli.
+The default image used is `ghcr.io/c0ffee0wl/claudo:latest`. It is based on Ubuntu 24.04 with Claude Code pre-installed. Includes common dev tools: git, ripgrep, fd, fzf, jq, make, nano, tree, zsh (with oh-my-zsh), Node.js, uv, and docker-cli.
 
 The image is updated weekly to incorporate latest Ubuntu security patches (using `apt upgrade`). But you need to `claudo --pull` yourself to get the updates.
 
@@ -168,7 +171,8 @@ Examples:
                                   Combined options with command
 
 The current directory is mounted at /workspaces/<dirname>.
-~/.claude is mounted for authentication persistence.
+~/.claudo is mounted for container config (separate from host ~/.claude).
+~/.claude/skills is shared read-only from the host.
 ```
 <!--[[[end]]]-->
 

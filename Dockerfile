@@ -18,16 +18,24 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     direnv \
     dnsutils \
     fd-find \
+    file \
     fzf \
     git \
+    gnupg \
     iputils-ping \
     jq \
+    make \
+    nano \
     ripgrep \
     sudo \
+    tree \
+    unzip \
     wget \
     zsh \
     # Required for claude to be installed
     libatomic1 \
+    # Python virtual environment support
+    python3-venv \
     # Document processing dependencies
     python3-reportlab \
     python3-pandas \
@@ -41,6 +49,11 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     poppler-utils \
     qpdf \
     tesseract-ocr \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js LTS for MCP plugins
+RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+    && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 RUN userdel -r ubuntu 2>/dev/null || true \
