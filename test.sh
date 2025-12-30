@@ -109,7 +109,7 @@ fi
 echo "Testing --git gitconfig is read-only..."
 if [[ -f "$HOME/.gitconfig" ]]; then
     output=$(./claudo --git -- sh -c 'echo test >> /home/claudo/.gitconfig' 2>&1 || true)
-    [[ "$output" == *"Read-only"* || "$output" == *"read-only"* ]] && pass "--git gitconfig is read-only" || fail "--git read-only: $output"
+    [[ "$output" == *"Read-only"* || "$output" == *"read-only"* || "$output" == *"Permission denied"* ]] && pass "--git gitconfig is read-only" || fail "--git read-only: $output"
 else
     pass "--git read-only (skipped: no ~/.gitconfig on host)"
 fi
