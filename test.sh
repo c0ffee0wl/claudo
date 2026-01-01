@@ -71,10 +71,20 @@ echo "Testing --tmp workdir is writable..."
 output=$(./claudo --tmp -- touch /workspaces/tmp/testfile 2>&1)
 [[ -z "$output" ]] && pass "--tmp workdir is writable" || fail "--tmp writable: $output"
 
-# Test: ~/.claude is mounted
-echo "Testing ~/.claude mount..."
-output=$(./claudo -- ls -la /home/claudo/.claude 2>&1 || true)
-[[ "$output" != *"No such file"* ]] && pass "~/.claude is mounted" || fail "~/.claude mount: $output"
+# Test: /claude-config is mounted
+echo "Testing /claude-config mount..."
+output=$(./claudo -- ls -la /claude-config 2>&1 || true)
+[[ "$output" != *"No such file"* ]] && pass "/claude-config is mounted" || fail "/claude-config mount: $output"
+
+# Test: CLAUDE_CONFIG_DIR is set
+echo "Testing CLAUDE_CONFIG_DIR is set..."
+output=$(./claudo -- printenv CLAUDE_CONFIG_DIR)
+[[ "$output" == "/claude-config" ]] && pass "CLAUDE_CONFIG_DIR is set" || fail "CLAUDE_CONFIG_DIR: $output"
+
+# Test: Container runs as UID 1000
+echo "Testing container runs as UID 1000..."
+output=$(./claudo -- id -u)
+[[ "$output" == *"1000"* ]] && pass "container UID is 1000" || fail "container UID: $output"
 
 # Test: Hostname is set
 echo "Testing hostname..."
@@ -122,8 +132,8 @@ output=$(./claudo --dry-run --host -- echo test 2>&1)
 # Test: Named container (create and cleanup)
 echo "Testing --name creates persistent container..."
 ./claudo -n testcontainer -- echo "named" > /dev/null
-docker ps -a --format '{{.Names}}' | grep -q "claudo-testcontainer" && pass "-n creates named container" || fail "-n container"
-docker rm -f claudo-testcontainer > /dev/null 2>&1
+podman ps -a --format '{{.Names}}' | grep -q "claudo-testcontainer" && pass "-n creates named container" || fail "-n container"
+podman rm -f claudo-testcontainer > /dev/null 2>&1
 
 # Test: --docker-socket mounts docker socket
 echo "Testing --docker-socket mounts docker socket..."
@@ -145,8 +155,8 @@ echo "Testing -p is alias for --prompt..."
 output=$(./claudo --dry-run -p "test prompt" 2>&1)
 [[ "$output" == *"-p test prompt"* ]] && pass "-p works" || fail "-p: $output"
 
-# Test: --docker-opts passes options to docker
-echo "Testing --docker-opts passes options to docker..."
+# Test: --docker-opts passes options to podman
+echo "Testing --docker-opts passes options to podman..."
 output=$(./claudo --dry-run --docker-opts "--memory 2g" -- echo test 2>&1)
 [[ "$output" == *"--memory 2g"* ]] && pass "--docker-opts passes options" || fail "--docker-opts: $output"
 
@@ -164,7 +174,7 @@ output=$(./claudo --attach nonexistent 2>&1 || true)
 echo "Testing --attach reattaches to stopped container..."
 ./claudo -n attachtest -- echo "first run" > /dev/null
 output=$(./claudo --attach attachtest)
-docker rm -f claudo-attachtest > /dev/null 2>&1
+podman rm -f claudo-attachtest > /dev/null 2>&1
 [[ "$output" == *"first run"* ]] && pass "--attach reattaches to stopped container" || fail "--attach stopped: $output"
 
 # Test: -a is alias for --attach
@@ -189,63 +199,6 @@ output=$(./claudo --no-network -- ping -c 1 8.8.8.8 2>&1 || true)
 # Test: --no-network help text
 echo "Testing --no-network in help..."
 ./claudo --help | grep -q "\-\-no-network" && pass "--no-network in help" || fail "--no-network help"
-
-# Test: --httpjail uses httpjail wrapper with default rule
-echo "Testing --httpjail uses httpjail wrapper..."
-output=$(./claudo --dry-run --httpjail -- echo test 2>&1)
-[[ "$output" == *"httpjail"* && "$output" == *"--docker-run"* ]] && pass "--httpjail uses httpjail wrapper" || fail "--httpjail wrapper: $output"
-
-# Test: --httpjail default allows api.anthropic.com
-echo "Testing --httpjail default rule allows Anthropic API..."
-output=$(./claudo --dry-run --httpjail -- echo test 2>&1)
-[[ "$output" == *"api.anthropic.com"* ]] && pass "--httpjail default allows Anthropic" || fail "--httpjail default: $output"
-
-# Test: --httpjail-opts enables httpjail with custom rule
-echo "Testing --httpjail-opts enables httpjail..."
-output=$(./claudo --dry-run --httpjail-opts '--js "r.host === \"example.com\""' -- echo test 2>&1)
-[[ "$output" == *"httpjail"* && "$output" == *"--docker-run"* ]] && pass "--httpjail-opts enables httpjail" || fail "--httpjail-opts: $output"
-
-# Test: --httpjail-opts replaces default rule
-echo "Testing --httpjail-opts replaces default..."
-output=$(./claudo --dry-run --httpjail-opts '--js "r.host === \"example.com\""' -- echo test 2>&1)
-[[ "$output" != *"api.anthropic.com"* && "$output" == *"example.com"* ]] && pass "--httpjail-opts replaces default" || fail "--httpjail-opts replace: $output"
-
-# Test: --httpjail help text
-echo "Testing --httpjail in help..."
-./claudo --help | grep -q "\-\-httpjail" && pass "--httpjail in help" || fail "--httpjail help"
-
-# Test: --httpjail-opts help text
-echo "Testing --httpjail-opts in help..."
-./claudo --help | grep -q "\-\-httpjail-opts" && pass "--httpjail-opts in help" || fail "--httpjail-opts help"
-
-# Test: --httpjail uses XDG_CONFIG_HOME for world-readable CA cert
-echo "Testing --httpjail uses XDG_CONFIG_HOME..."
-output=$(./claudo --dry-run --httpjail -- echo test 2>&1)
-[[ "$output" == *"XDG_CONFIG_HOME=/tmp/httpjail-config"* ]] && pass "--httpjail sets XDG_CONFIG_HOME" || fail "--httpjail XDG: $output"
-
-# Test: --httpjail CA cert is readable in container (functional test)
-# This test requires httpjail + sudo + nftables + network namespace permissions
-# It may not work in CI environments due to security restrictions
-echo "Testing --httpjail CA cert is accessible..."
-if command -v httpjail &> /dev/null && sudo -n true 2>/dev/null; then
-    # Try running httpjail - it may fail due to permission restrictions in CI
-    output=$(./claudo --httpjail -- cat /tmp/httpjail-config/httpjail/ca-cert.pem 2>&1 || true)
-    if [[ "$output" == *"BEGIN CERTIFICATE"* ]]; then
-        pass "--httpjail CA cert readable"
-    elif [[ "$output" == *"Operation not permitted"* || "$output" == *"permission"* || "$output" == *"namespace"* || "$output" == *"No such file"* ]]; then
-        # httpjail may fail silently in restricted environments (CI, containers, etc.)
-        pass "--httpjail CA cert (skipped: httpjail cannot run in this environment)"
-    else
-        fail "--httpjail CA cert: $output"
-    fi
-else
-    pass "--httpjail CA cert (skipped: httpjail not installed or no sudo)"
-fi
-
-# Test: --httpjail errors if httpjail not installed
-echo "Testing --httpjail errors if httpjail not found..."
-output=$(PATH=/usr/bin:/bin ./claudo --httpjail -- echo test 2>&1 || true)
-[[ "$output" == *"httpjail"* && "$output" == *"not found"* && "$output" == *"nftables"* && "$output" == *"github.com/coder/httpjail"* ]] && pass "--httpjail missing error" || fail "--httpjail missing: $output"
 
 # Test: -- with flag args passes to default claude command
 echo "Testing -- with flags passes to claude..."

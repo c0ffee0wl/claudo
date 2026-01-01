@@ -31,20 +31,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build image for testing
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          load: true
-          tags: claudo:test
-          # No cache to ensure fresh dependencies
-          no-cache: true
-
-      - name: Install httpjail and nftables
+      - name: Install Podman
         run: |
-          sudo apt-get update && sudo apt-get install -y nftables
-          curl -sL https://github.com/coder/httpjail/releases/download/v0.6.0/httpjail-0.6.0-linux-x86_64.tar.gz | tar xz -C /tmp
-          sudo mv /tmp/httpjail-0.6.0-linux-x86_64/httpjail /usr/local/bin/
+          sudo apt-get update
+          sudo apt-get install -y podman
+
+      - name: Build image for testing
+        run: |
+          # No cache to ensure fresh dependencies
+          podman build --no-cache -t claudo:test .
 
       - name: Run tests
         run: |

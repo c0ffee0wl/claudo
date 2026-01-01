@@ -1,6 +1,6 @@
 # Claudo
 
-Docker container for running Claude Code in an isolated environment.
+Podman container for running Claude Code in an isolated environment.
 
 ## Structure
 
@@ -9,7 +9,7 @@ Docker container for running Claude Code in an isolated environment.
 - `entrypoint.sh` - Handles interactive vs piped input, sources zsh config
 - `justfile` - Build and push commands
 - `test.sh` - Test suite for claudo script behavior
-- `.github/workflows` - Github Actions to test and build the docker image
+- `.github/workflows` - Github Actions to test and build the container image
 
 ## Building
 
@@ -23,8 +23,10 @@ just update-readme  # runs cogapp on the README.md
 
 - Default command is `claude --dangerously-skip-permissions`
 - Piped input goes to `claude --dangerously-skip-permissions -p`
-- `~/.claude` mounted for auth persistence
+- `~/.claudo` mounted at `/claude-config` for auth persistence
+- `~/.claude/skills` mounted at `/claude-config/skills` (read-only)
 - Current directory mounted at `/workspaces/<dirname>`
+- Automatic UID/GID mapping via Podman user namespaces
 - `--tmp` runs isolated without mounting current directory
 - `--no-sudo` adds `no-new-privileges` security restriction
 - `--no-privileges` drops all Linux capabilities

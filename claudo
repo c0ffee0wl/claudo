@@ -2,14 +2,14 @@
 
 show_help() {
     cat << 'EOF'
-claudo - Run Claude Code in a Docker container
+claudo - Run Claude Code in a Podman container
 
 Usage: claudo [OPTIONS] [--] [COMMAND...]
 
 Options:
   -e KEY=VALUE    Set environment variable in container (can be used multiple times)
   -p, --prompt PROMPT  Run claude with -p (prompt mode)
-  -i, --image IMG Use specified Docker image (default: $CLAUDO_IMAGE or built-in)
+  -i, --image IMG Use specified container image (default: $CLAUDO_IMAGE or built-in)
   --host          Use host network mode
   --no-sudo       Disable sudo (adds no-new-privileges restriction)
   --no-privileges Drop all capabilities (most restrictive)
@@ -20,11 +20,9 @@ Options:
   -n, --name NAME Create a named container 'claudo-NAME' that persists after exit
   -a, --attach NAME  Attach to existing container 'claudo-NAME'
   --tmp           Run isolated (no directory mount, workdir /workspaces/tmp)
-  -v, --verbose   Display docker command before executing
-  --dry-run       Show docker command without executing (implies --verbose)
-  --docker-opts OPTS  Pass additional options to docker run
-  --httpjail      Use httpjail to restrict network (allows api.anthropic.com only)
-  --httpjail-opts OPTS  Use httpjail with custom options (replaces default rule)
+  -v, --verbose   Display podman command before executing
+  --dry-run       Show podman command without executing (implies --verbose)
+  --docker-opts OPTS  Pass additional options to podman run
   -h, --help      Show this help message
 
 Arguments after -- are passed to claude if they start with -, otherwise as the container command.
@@ -46,13 +44,10 @@ Examples:
   claudo -- -c                    Continue the most recent conversation
   claudo -- zsh                   Run zsh instead of claude
   claudo -n dev -e DEBUG=1 -- -c  Combined options with claude flags
-  claudo --httpjail             Restrict network to Anthropic API only
-  claudo --httpjail-opts '--js "r.host.endsWith(\".anthropic.com\")"'
-                                  Custom httpjail rule
 
 The current directory is mounted at /workspaces/<dirname>.
-~/.claudo is mounted for container config (separate from host ~/.claude).
-~/.claude/skills is shared read-only from the host.
+~/.claudo is mounted at /claude-config for container config.
+~/.claude/skills is mounted at /claude-config/skills (read-only).
 
 LLM API environment variables are automatically passed through if set:
   ANTHROPIC_API_KEY, OPENAI_API_KEY, AZURE_OPENAI_API_KEY, GOOGLE_API_KEY,
@@ -62,7 +57,7 @@ EOF
 
 current_dir=$(pwd)
 dir_name=$(basename "$current_dir")
-# Sanitize directory name for Docker volume mount (colons break -v syntax)
+# Sanitize directory name for volume mount (colons break -v syntax)
 safe_dir_name="${dir_name//:/-}"
 
 env_args=()
@@ -83,8 +78,6 @@ pull_mode=false
 verbose=false
 dry_run=false
 docker_opts=""
-httpjail_mode=false
-httpjail_opts=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -154,15 +147,6 @@ while [[ $# -gt 0 ]]; do
             docker_opts="$2"
             shift 2
             ;;
-        --httpjail)
-            httpjail_mode=true
-            shift
-            ;;
-        --httpjail-opts)
-            httpjail_mode=true
-            httpjail_opts="$2"
-            shift 2
-            ;;
         -h|--help)
             show_help
             exit 0
@@ -188,28 +172,15 @@ done
 
 if [[ -n "$attach_name" && ${#command_args[@]} -gt 0 ]]; then
     echo "Error: --attach cannot override the container command" >&2
-    echo "Use 'docker exec -it claudo-$attach_name ${command_args[*]}' to run a different command" >&2
+    echo "Use 'podman exec -it claudo-$attach_name ${command_args[*]}' to run a different command" >&2
     exit 1
 fi
 
 if [[ "$tmp_mode" != true && "$current_dir" == *:* ]]; then
-    echo "Error: Directory path contains ':' which breaks Docker volume mounts" >&2
+    echo "Error: Directory path contains ':' which breaks volume mounts" >&2
     echo "Path: $current_dir" >&2
     echo "Use --tmp mode or rename the directory" >&2
     exit 1
-fi
-
-# Fix permissions if host user is not UID 1000 and in /home or /opt
-if [[ "$tmp_mode" != true && $(id -u) -ne 1000 ]]; then
-    if [[ "$current_dir" == /home/* || "$current_dir" == /opt/* ]]; then
-        echo "Fixing permissions: sudo chown -R 1000:1000 $current_dir" >&2
-        sudo chown -R 1000:1000 "$current_dir"
-    fi
-fi
-
-# Add git safe directory if in a git repo
-if [[ "$tmp_mode" != true && -d "$current_dir/.git" ]]; then
-    git config --global --add safe.directory "$current_dir" 2>/dev/null || true
 fi
 
 # --- Handle attach mode (separate code path) ---
@@ -217,7 +188,7 @@ fi
 if [[ -n "$attach_name" ]]; then
     full_name="claudo-$attach_name"
 
-    if ! docker ps -a --format '{{.Names}}' | grep -q "^${full_name}$"; then
+    if ! podman ps -a --format '{{.Names}}' | grep -q "^${full_name}$"; then
         echo "Error: Container '$full_name' does not exist" >&2
         echo "Use 'claudo -n $attach_name' to create it first" >&2
         exit 1
@@ -226,16 +197,16 @@ if [[ -n "$attach_name" ]]; then
     start_args=(start -ai "$full_name")
 
     if [[ "$verbose" == true ]]; then
-        printf '\e[2mdocker %s\e[0m\n' "${start_args[*]}" >&2
+        printf '\e[2mpodman %s\e[0m\n' "${start_args[*]}" >&2
     fi
 
     if [[ "$dry_run" != true ]]; then
-        docker "${start_args[@]}"
+        podman "${start_args[@]}"
     fi
     exit $?
 fi
 
-# --- Build docker run command ---
+# --- Build podman run command ---
 
 # Use -it if stdin is a terminal, otherwise just -i for piped input
 if [[ -t 0 ]]; then
@@ -244,11 +215,31 @@ else
     tty_flag="-i"
 fi
 
+# UID mapping: container always runs as UID 1000
+# --userns=keep-id is not allowed for root, so use different approach
+if [[ $(id -u) -eq 0 ]]; then
+    # Root host: create user namespace mapping container UID 1000 to host UID 0 (root)
+    # Need full UID range for container to function:
+    # - Container 0-999 → Host 1-1000 (shifted)
+    # - Container 1000 → Host 0 (root) <-- the key mapping
+    # - Container 1001-65535 → Host 1001-65535 (identity)
+    userns_args=(
+        --uidmap 0:1:1000 --uidmap 1000:0:1 --uidmap 1001:1001:64535
+        --gidmap 0:1:1000 --gidmap 1000:0:1 --gidmap 1001:1001:64535
+        --user 1000:1000
+    )
+else
+    # Non-root host: use keep-id to map host UID to container UID 1000
+    userns_args=(--userns=keep-id:uid=1000,gid=1000)
+fi
+
 docker_args=(
     run $tty_flag $remove_flag
+    "${userns_args[@]}"
     --hostname claudo
-    -v "$HOME/.claudo:/home/claudo/.claude"
-    -v "$HOME/.claude/skills:/home/claudo/.claude/skills:ro"
+    -v "$HOME/.claudo:/claude-config"
+    -v "$HOME/.claude/skills:/claude-config/skills:ro"
+    -e "CLAUDE_CONFIG_DIR=/claude-config"
 )
 
 # Auto-passthrough LLM API environment variables from host
@@ -339,34 +330,8 @@ else
     fi
 fi
 
-# Check if httpjail is available when needed
-if [[ "$httpjail_mode" == true ]]; then
-    if ! command -v httpjail &> /dev/null; then
-        echo "Error: httpjail not found in PATH" >&2
-        echo "Install httpjail and nftables from https://github.com/coder/httpjail" >&2
-        exit 1
-    fi
-fi
-
-# Build httpjail args if enabled
-httpjail_args=()
-if [[ "$httpjail_mode" == true ]]; then
-    if [[ -n "$httpjail_opts" ]]; then
-        # shellcheck disable=SC2206
-        httpjail_args=($httpjail_opts --docker-run --)
-    else
-        # Default: allow only Anthropic API
-        httpjail_args=(--js 'r.host === "api.anthropic.com"' --docker-run --)
-    fi
-fi
-
 if [[ "$verbose" == true ]]; then
-    if [[ "$httpjail_mode" == true ]]; then
-        # httpjail --docker-run expects docker run args without 'docker run' prefix
-        printf '\e[2msudo XDG_CONFIG_HOME=/tmp/httpjail-config httpjail %s %s\e[0m\n' "${httpjail_args[*]}" "${docker_args[*]:1}" >&2
-    else
-        printf '\e[2mdocker %s\e[0m\n' "${docker_args[*]}" >&2
-    fi
+    printf '\e[2mpodman %s\e[0m\n' "${docker_args[*]}" >&2
 fi
 
 if [[ "$dry_run" == true ]]; then
@@ -375,11 +340,4 @@ fi
 
 # --- Execute ---
 
-if [[ "$httpjail_mode" == true ]]; then
-    # httpjail --docker-run expects docker run args without 'docker run' prefix
-    # Skip first element of docker_args (which is 'run')
-    # Use XDG_CONFIG_HOME to store CA cert in world-readable location (not /root)
-    sudo XDG_CONFIG_HOME=/tmp/httpjail-config httpjail "${httpjail_args[@]}" "${docker_args[@]:1}"
-else
-    docker "${docker_args[@]}"
-fi
+podman "${docker_args[@]}"

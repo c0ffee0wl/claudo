@@ -1,8 +1,8 @@
 # claudo
 
-**claudo** = **clau**de in **do**cker / (**claudō**, [latin for "to restrict", "to imprison"](https://en.wiktionary.org/wiki/claudo))
+**claudo** = **clau**de in po**d**man (or d**o**cker) / (**claudō**, [latin for "to restrict", "to imprison"](https://en.wiktionary.org/wiki/claudo))
 
-Run Claude Code inside a Docker container for isolation, mounting the current
+Run Claude Code inside a Podman container for isolation, mounting the current
 directory for easy access to your project.
 
 The idea: It is so effective to run claude with `--dangerously-skip-permissions`, but also dangerous. Claude might go wild and [delete your home directory](https://www.reddit.com/r/ClaudeAI/comments/1pgxckk/claude_cli_deleted_my_entire_home_directory_wiped/).
@@ -10,36 +10,39 @@ It might be attacked by a prompt injection.
 
 To develop with claude code, I would usually setup a devcontainer environment to isolate the project - but in quick and dirty cases where I just need AI help with filesystem access, I would not bother to do the 2 minute setup. I just want a quick command like `claude` on the CLI which gives me the AI powers.
 
-`claudo` does that, by running `claude --dangerously-skip-permissions` in a docker container.
+`claudo` does that, by running `claude --dangerously-skip-permissions` in a Podman container.
 
 At its core `claudo` is a shortcut that translates into this (plus a few more additional features, see below):
 
 ```bash
-docker run -it --rm --hostname claudo \
-    -v $HOME/.claudo:/home/claudo/.claude \
-    -v $HOME/.claude/skills:/home/claudo/.claude/skills:ro \
+podman run -it --rm \
+    --userns=keep-id:uid=1000,gid=1000 \
+    --hostname claudo \
+    -v $HOME/.claudo:/claude-config \
+    -v $HOME/.claude/skills:/claude-config/skills:ro \
+    -e CLAUDE_CONFIG_DIR=/claude-config \
     -v $PWD:/workspaces/$(basename $PWD) \
     -w /workspaces/$(basename $PWD) \
     ghcr.io/c0ffee0wl/claudo:latest \
     claude --dangerously-skip-permissions
 ```
 
-Note: The container uses `~/.claudo` (not `~/.claude`) on the host for its config, keeping it separate from your host Claude Code installation. Skills are shared read-only from the host.
+Note: The container uses `~/.claudo` (not `~/.claude`) on the host for its config, keeping it separate from your host Claude Code installation. Skills from `~/.claude/skills` are mounted read-only at `/claude-config/skills`.
 
 ![claudo demo](demo/demo.gif)
 
 ## Features
 
 - Mounts the current directory into `/workspaces/`
-- Mounts `~/.claude` for authentication persistence (no re-login required)
+- Mounts `~/.claudo` at `/claude-config` for authentication persistence (no re-login required)
+- Automatic UID/GID mapping - works with any host user including root
 - Host Docker socket mounting (`--docker-socket`) for sibling containers
 - Git config mounting for commits inside container (`--git`)
 - Named persistent containers (`-n`)
-- Restrict network access using [httpjail](https://github.com/coder/httpjail) (`--httpjail`)
 - Security hardening with `--no-sudo` or `--no-privileges`
 - Isolated mode without directory mount (`--tmp`)
 - Custom image support (`-i` or `$CLAUDO_IMAGE`)
-- See the `docker run` command without executing it so you can inspect how it works under the hood (`--dry-run`)
+- See the `podman run` command without executing it so you can inspect how it works under the hood (`--dry-run`)
 
 ## Usecases
 
@@ -76,7 +79,7 @@ This is how these scripts were created: https://gist.github.com/gregmuellegger/3
 
 ## Security Considerations
 
-`claudo` runs inside a docker container. This safeguards from the most obvious attacks. However keep in mind that the code still runs on your local computer, so any security vulnerability in docker might be exploited. Also there are a few specifics about `claudo` that you should be aware of:
+`claudo` runs inside a Podman container. This safeguards from the most obvious attacks. However keep in mind that the code still runs on your local computer, so any security vulnerability in Podman might be exploited. Also there are a few specifics about `claudo` that you should be aware of:
 
 - **`~/.claudo` is mounted read-write** as the container's Claude config directory. Code running in the container can modify this configuration. Your host's `~/.claude` is not directly exposed (only skills are shared read-only).
 - **`--docker-socket` grants host root equivalent access.** The Docker socket allows full control of the host via Docker. Only use when you trust the code running inside.
@@ -85,22 +88,9 @@ The default image used is `ghcr.io/c0ffee0wl/claudo:latest`. It is based on Ubun
 
 The image is updated weekly to incorporate latest Ubuntu security patches (using `apt upgrade`). But you need to `claudo --pull` yourself to get the updates.
 
-### Restricting network access with httpjail
-
-By default the claude code can access the public internet as any other process. However coding agents are vulnerable to data exfiltration attacks (e.g. reading sensitive data from your computer and sending it to an untrusted or even malicious thirdparty).
-
-[httpjail](https://github.com/coder/httpjail) is an interesting (yet
-experimental) tool to restrict network access in order to mitigate these attacks.
-
-`claudo` implements support by wrapping the `docker run` call with a `httpjail` call. Then, by default, only `*.anthropic.com` can be reached by any process inside the container. So there is no way to for example download unsafe code from the internet or to send data to other parties via the internet.
-
-This requires httpjail and nftables to be installed.
-
-Use `claudo --httpjail --dry-run` to see what will be executed.
-
-You can use `--httpjail-opts` to pass additional arguments. But you would set the rule engine then yourself. For claude to work it needs access to `*.anthropic.com`.
-
 ## Installation
+
+Requires [Podman](https://podman.io/) to be installed.
 
 Install by placing the `claudo` script in your `~/.local/bin` directory. Make sure it is on `$PATH`.
 
@@ -129,14 +119,14 @@ cog.out(result.stdout)
 cog.outl('```')
 ]]]-->
 ```
-claudo - Run Claude Code in a Docker container
+claudo - Run Claude Code in a Podman container
 
 Usage: claudo [OPTIONS] [--] [COMMAND...]
 
 Options:
   -e KEY=VALUE    Set environment variable in container (can be used multiple times)
   -p, --prompt PROMPT  Run claude with -p (prompt mode)
-  -i, --image IMG Use specified Docker image (default: $CLAUDO_IMAGE or built-in)
+  -i, --image IMG Use specified container image (default: $CLAUDO_IMAGE or built-in)
   --host          Use host network mode
   --no-sudo       Disable sudo (adds no-new-privileges restriction)
   --no-privileges Drop all capabilities (most restrictive)
@@ -147,12 +137,12 @@ Options:
   -n, --name NAME Create a named container 'claudo-NAME' that persists after exit
   -a, --attach NAME  Attach to existing container 'claudo-NAME'
   --tmp           Run isolated (no directory mount, workdir /workspaces/tmp)
-  -v, --verbose   Display docker command before executing
-  --dry-run       Show docker command without executing (implies --verbose)
-  --docker-opts OPTS  Pass additional options to docker run
+  -v, --verbose   Display podman command before executing
+  --dry-run       Show podman command without executing (implies --verbose)
+  --docker-opts OPTS  Pass additional options to podman run
   -h, --help      Show this help message
 
-Arguments after -- are passed directly as the container command.
+Arguments after -- are passed to claude if they start with -, otherwise as the container command.
 
 Examples:
   claudo                          Run claude --dangerously-skip-permissions (default)
@@ -166,19 +156,25 @@ Examples:
   claudo --git                    Enable git commits from inside container
   claudo -n myproject             Start named persistent container
   claudo -a myproject             Attach to existing container
-  claudo -- claude --help         Run claude with arguments
-  claudo -n dev -e DEBUG=1 -- claude
-                                  Combined options with command
+  claudo -- --resume              Resume a conversation (shows picker)
+  claudo -- --resume last         Resume the last conversation
+  claudo -- -c                    Continue the most recent conversation
+  claudo -- zsh                   Run zsh instead of claude
+  claudo -n dev -e DEBUG=1 -- -c  Combined options with claude flags
 
 The current directory is mounted at /workspaces/<dirname>.
-~/.claudo is mounted for container config (separate from host ~/.claude).
-~/.claude/skills is shared read-only from the host.
+~/.claudo is mounted at /claude-config for container config.
+~/.claude/skills is mounted at /claude-config/skills (read-only).
+
+LLM API environment variables are automatically passed through if set:
+  ANTHROPIC_API_KEY, OPENAI_API_KEY, AZURE_OPENAI_API_KEY, GOOGLE_API_KEY,
+  GEMINI_API_KEY, MISTRAL_API_KEY, GROQ_API_KEY, and others (AWS, HuggingFace, etc.)
 ```
 <!--[[[end]]]-->
 
-## Use your own docker image
+## Use your own container image
 
-You don't trust my docker image? I wouldn't trust yours either! Since we
+You don't trust my container image? I wouldn't trust yours either! Since we
 established mutual distrust, lets talk about how you can use this project
 anyways.
 
@@ -198,8 +194,9 @@ curl -fsSL https://raw.githubusercontent.com/c0ffee0wl/claudo/main/claudo | \
 Your image must fulfill these requirements:
 
 - `claude` installed and on PATH
-- User home directory at `/home/claudo` (for mounting `~/.claude`)
+- User home directory at `/home/claudo`
 - `/workspaces/` directory exists (for working directory mounts)
+- `/claude-config/` directory exists with correct ownership (for config and skills mounts)
 - For `--tmp` to work: `/workspaces/tmp/` needs to exist and writable for `claudo` user
 
 ### Forking
