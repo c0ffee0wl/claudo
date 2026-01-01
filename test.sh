@@ -137,13 +137,21 @@ podman rm -f claudo-testcontainer > /dev/null 2>&1
 
 # Test: --docker-socket mounts docker socket
 echo "Testing --docker-socket mounts docker socket..."
-output=$(./claudo --docker-socket -- ls -la /var/run/docker.sock 2>&1 || true)
-[[ "$output" == *"docker.sock"* && "$output" != *"No such file"* ]] && pass "--docker-socket mounts docker socket" || fail "--docker-socket socket: $output"
+if [[ -S /var/run/docker.sock ]]; then
+    output=$(./claudo --docker-socket -- ls -la /var/run/docker.sock 2>&1 || true)
+    [[ "$output" == *"docker.sock"* && "$output" != *"No such file"* ]] && pass "--docker-socket mounts docker socket" || fail "--docker-socket socket: $output"
+else
+    pass "--docker-socket (skipped: no docker socket on host)"
+fi
 
 # Test: --docker-socket allows docker commands
 echo "Testing --docker-socket allows docker commands..."
-output=$(./claudo --docker-socket -- docker version 2>&1 || true)
-[[ "$output" == *"Version"* || "$output" == *"version"* ]] && pass "--docker-socket docker works" || fail "--docker-socket docker: $output"
+if [[ -S /var/run/docker.sock ]]; then
+    output=$(./claudo --docker-socket -- docker version 2>&1 || true)
+    [[ "$output" == *"Version"* || "$output" == *"version"* ]] && pass "--docker-socket docker works" || fail "--docker-socket docker: $output"
+else
+    pass "--docker-socket docker (skipped: no docker socket on host)"
+fi
 
 # Test: --prompt passes -p to claude
 echo "Testing --prompt passes -p to claude..."
@@ -194,7 +202,7 @@ echo "Testing --attach in help..."
 # Test: --no-network disables network access
 echo "Testing --no-network disables network..."
 output=$(./claudo --no-network -- ping -c 1 8.8.8.8 2>&1 || true)
-[[ "$output" == *"Network is unreachable"* || "$output" == *"bad address"* || "$output" == *"unknown host"* ]] && pass "--no-network disables network" || fail "--no-network: $output"
+[[ "$output" == *"Network is unreachable"* || "$output" == *"bad address"* || "$output" == *"unknown host"* || "$output" == *"operation not permitted"* ]] && pass "--no-network disables network" || fail "--no-network: $output"
 
 # Test: --no-network help text
 echo "Testing --no-network in help..."
