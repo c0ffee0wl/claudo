@@ -16,6 +16,7 @@ Options:
   --no-network    Disable network access (breaks Claude Code)
   --docker-socket Mount host Docker socket (sibling containers, host root equivalent)
   --git           Mount git config (~/.gitconfig and credentials) for committing
+  --ssh           Mount SSH keys and forward SSH agent for GitHub auth
   --pull          Always pull the latest image before running
   -n, --name NAME Create a named container 'claudo-NAME' that persists after exit
   -a, --attach NAME  Attach to existing container 'claudo-NAME'
@@ -37,6 +38,7 @@ Examples:
   claudo --no-network             Start without network access
   claudo --docker-socket          Use host Docker socket (sibling containers)
   claudo --git                    Enable git commits from inside container
+  claudo --ssh                    Enable SSH auth for GitHub (plugins, git)
   claudo -n myproject             Start named persistent container
   claudo -a myproject             Attach to existing container
   claudo -- --resume              Resume a conversation (shows picker)
@@ -73,6 +75,7 @@ no_sudo=false
 no_privileges=false
 no_network=false
 git_mode=false
+ssh_mode=false
 docker_socket_mode=false
 pull_mode=false
 verbose=false
@@ -119,6 +122,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --git)
             git_mode=true
+            shift
+            ;;
+        --ssh)
+            ssh_mode=true
             shift
             ;;
         -n|--name)
@@ -295,6 +302,16 @@ fi
 # Docker socket mode: mount host docker socket (siblings mode)
 if [[ "$docker_socket_mode" == true ]]; then
     docker_args+=(-v "/var/run/docker.sock:/var/run/docker.sock")
+fi
+
+# SSH mode: mount SSH keys and forward SSH agent
+if [[ "$ssh_mode" == true ]]; then
+    if [[ -d "$HOME/.ssh" ]]; then
+        docker_args+=(-v "$HOME/.ssh:/home/claudo/.ssh:ro")
+    fi
+    if [[ -n "${SSH_AUTH_SOCK:-}" && -S "$SSH_AUTH_SOCK" ]]; then
+        docker_args+=(-v "$SSH_AUTH_SOCK:/ssh-agent" -e "SSH_AUTH_SOCK=/ssh-agent")
+    fi
 fi
 
 
