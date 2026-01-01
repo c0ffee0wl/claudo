@@ -208,6 +208,10 @@ fi
 
 # --- Build podman run command ---
 
+# Ensure config directories exist before mounting
+mkdir -p "$HOME/.claudo"
+mkdir -p "$HOME/.claude/skills"
+
 # Use -it if stdin is a terminal, otherwise just -i for piped input
 if [[ -t 0 ]]; then
     tty_flag="-it"
