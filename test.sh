@@ -238,5 +238,59 @@ echo "Testing unknown short option is rejected..."
 output=$(./claudo -x 2>&1 || true)
 [[ "$output" == *"Unknown option"* && "$output" == *"-x"* ]] && pass "unknown short option rejected" || fail "unknown short option: $output"
 
+# Test: --mount mounts directory inside current workspace
+echo "Testing --mount mounts directory..."
+tmpdir=$(mktemp -d)
+dir_name=$(basename "$(pwd)")
+echo "testfile" > "$tmpdir/testfile.txt"
+output=$(./claudo -m "$tmpdir" -- ls "/workspaces/$dir_name/$(basename "$tmpdir")" 2>&1)
+rm -rf "$tmpdir"
+[[ "$output" == *"testfile.txt"* ]] && pass "--mount mounts directory" || fail "--mount mount: $output"
+
+# Test: --mount with explicit destination
+echo "Testing --mount with explicit destination..."
+tmpdir=$(mktemp -d)
+echo "custom" > "$tmpdir/custom.txt"
+output=$(./claudo -m "$tmpdir:/custom/path" -- ls /custom/path 2>&1)
+rm -rf "$tmpdir"
+[[ "$output" == *"custom.txt"* ]] && pass "--mount explicit destination" || fail "--mount explicit: $output"
+
+# Test: Multiple --mount options
+echo "Testing multiple --mount options..."
+tmpdir1=$(mktemp -d)
+tmpdir2=$(mktemp -d)
+dir_name=$(basename "$(pwd)")
+echo "file1" > "$tmpdir1/file1.txt"
+echo "file2" > "$tmpdir2/file2.txt"
+output=$(./claudo -m "$tmpdir1" -m "$tmpdir2" -- sh -c "ls /workspaces/$dir_name/$(basename "$tmpdir1") && ls /workspaces/$dir_name/$(basename "$tmpdir2")" 2>&1)
+rm -rf "$tmpdir1" "$tmpdir2"
+[[ "$output" == *"file1.txt"* && "$output" == *"file2.txt"* ]] && pass "multiple --mount options" || fail "multiple --mount: $output"
+
+# Test: --mount errors when path doesn't exist
+echo "Testing --mount errors for nonexistent path..."
+output=$(./claudo -m /nonexistent/path/that/does/not/exist -- echo test 2>&1 || true)
+[[ "$output" == *"Mount path does not exist"* ]] && pass "--mount errors for nonexistent path" || fail "--mount nonexistent: $output"
+
+# Test: --mount is read-only
+echo "Testing --mount is read-only..."
+tmpdir=$(mktemp -d)
+dir_name=$(basename "$(pwd)")
+output=$(./claudo -m "$tmpdir" -- touch "/workspaces/$dir_name/$(basename "$tmpdir")/testfile" 2>&1 || true)
+rm -rf "$tmpdir"
+[[ "$output" == *"Read-only"* || "$output" == *"read-only"* ]] && pass "--mount is read-only" || fail "--mount read-only: $output"
+
+# Test: -m is alias for --mount
+echo "Testing -m is alias for --mount..."
+tmpdir=$(mktemp -d)
+dir_name=$(basename "$(pwd)")
+echo "alias" > "$tmpdir/alias.txt"
+output=$(./claudo -m "$tmpdir" -- ls "/workspaces/$dir_name/$(basename "$tmpdir")" 2>&1)
+rm -rf "$tmpdir"
+[[ "$output" == *"alias.txt"* ]] && pass "-m works as alias" || fail "-m alias: $output"
+
+# Test: --mount in help text
+echo "Testing --mount in help..."
+./claudo --help | grep -q "\-m, --mount" && pass "--mount in help" || fail "--mount help"
+
 echo
 echo "=== All tests passed ==="

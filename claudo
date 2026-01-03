@@ -8,6 +8,8 @@ Usage: claudo [OPTIONS] [--] [COMMAND...]
 
 Options:
   -e KEY=VALUE    Set environment variable in container (can be used multiple times)
+  -m, --mount PATH  Mount additional directory read-only inside current workspace (repeatable)
+                    Use PATH for auto-naming, or PATH:/container/path for explicit destination
   -p, --prompt PROMPT  Run claude with -p (prompt mode)
   -i, --image IMG Use specified container image (default: $CLAUDO_IMAGE or built-in)
   --host          Use host network mode
@@ -31,6 +33,9 @@ Arguments after -- are passed to claude if they start with -, otherwise as the c
 Examples:
   claudo                          Run claude --dangerously-skip-permissions (default)
   claudo -e API_KEY=xxx           Start with environment variable
+  claudo -m ~/projects/lib        Mount ~/projects/lib at /workspaces/<cwd>/lib
+  claudo -m /src:/custom/path     Mount with explicit container path
+  claudo -m ~/p1 -m ~/p2          Mount multiple directories
   claudo -i claudo-base:latest    Use a different image
   claudo --host                   Start with host networking
   claudo --no-sudo                Start without sudo privileges
@@ -64,6 +69,7 @@ safe_dir_name="${dir_name//:/-}"
 
 env_args=()
 network_args=()
+mount_args=()
 prompt_arg=""
 container_name=""
 attach_name=""
@@ -86,6 +92,10 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         -e)
             env_args+=("-e" "$2")
+            shift 2
+            ;;
+        -m|--mount)
+            mount_args+=("$2")
             shift 2
             ;;
         -p|--prompt)
@@ -257,7 +267,7 @@ docker_args=(
 for var in ANTHROPIC_API_KEY ANTHROPIC_MODEL \
            OPENAI_API_KEY OPENAI_API_BASE OPENAI_ORG_ID \
            AZURE_OPENAI_API_KEY AZURE_OPENAI_ENDPOINT AZURE_OPENAI_API_VERSION \
-           GOOGLE_API_KEY GOOGLE_APPLICATION_CREDENTIALS GEMINI_API_KEY \
+           GOOGLE_API_KEY GEMINI_API_KEY \
            MISTRAL_API_KEY COHERE_API_KEY HUGGINGFACE_API_KEY HF_TOKEN \
            GROQ_API_KEY TOGETHER_API_KEY REPLICATE_API_TOKEN \
            PERPLEXITY_API_KEY FIREWORKS_API_KEY DEEPSEEK_API_KEY \
@@ -314,6 +324,35 @@ if [[ "$ssh_mode" == true ]]; then
     fi
 fi
 
+# Determine workspace base path for auto-mounts
+if [[ "$tmp_mode" == true ]]; then
+    workspace_base="/workspaces/tmp"
+else
+    workspace_base="/workspaces/$safe_dir_name"
+fi
+
+# Additional mount points
+for mount_spec in "${mount_args[@]}"; do
+    if [[ "$mount_spec" == *":"* ]]; then
+        # Explicit destination: /host/path:/container/path
+        host_path="${mount_spec%%:*}"
+        container_path="${mount_spec#*:}"
+    else
+        # Auto destination: /host/path -> inside current workspace
+        host_path="$mount_spec"
+        mount_basename=$(basename "$host_path")
+        # Sanitize basename (replace colons with dashes)
+        safe_mount_name="${mount_basename//:/-}"
+        container_path="$workspace_base/$safe_mount_name"
+    fi
+    # Expand ~ to $HOME
+    host_path="${host_path/#\~/$HOME}"
+    if [[ ! -e "$host_path" ]]; then
+        echo "Error: Mount path does not exist: $host_path" >&2
+        exit 1
+    fi
+    docker_args+=(-v "$host_path:$container_path:ro")
+done
 
 if [[ "$tmp_mode" == true ]]; then
     docker_args+=(-w "/workspaces/tmp")
