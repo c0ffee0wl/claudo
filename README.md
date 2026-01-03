@@ -35,6 +35,7 @@ Note: The container uses `~/.claudo` (not `~/.claude`) on the host for its confi
 
 - Mounts the current directory into `/workspaces/`
 - Mounts `~/.claudo` at `/claude-config` for authentication persistence (no re-login required)
+- Mount additional directories with `-m` (read-only by default, append `:rw` for read-write)
 - Automatic UID/GID mapping - works with any host user including root
 - Host Docker socket mounting (`--docker-socket`) for sibling containers
 - Git config mounting for commits inside container (`--git`)

@@ -8,8 +8,9 @@ Usage: claudo [OPTIONS] [--] [COMMAND...]
 
 Options:
   -e KEY=VALUE    Set environment variable in container (can be used multiple times)
-  -m, --mount PATH  Mount additional directory read-only inside current workspace (repeatable)
+  -m, --mount PATH  Mount additional directory inside current workspace (repeatable)
                     Use PATH for auto-naming, or PATH:/container/path for explicit destination
+                    Append :rw for read-write (default is read-only): PATH:rw or PATH:/dest:rw
   -p, --prompt PROMPT  Run claude with -p (prompt mode)
   -i, --image IMG Use specified container image (default: $CLAUDO_IMAGE or built-in)
   --host          Use host network mode
@@ -33,8 +34,10 @@ Arguments after -- are passed to claude if they start with -, otherwise as the c
 Examples:
   claudo                          Run claude --dangerously-skip-permissions (default)
   claudo -e API_KEY=xxx           Start with environment variable
-  claudo -m ~/projects/lib        Mount ~/projects/lib at /workspaces/<cwd>/lib
-  claudo -m /src:/custom/path     Mount with explicit container path
+  claudo -m ~/projects/lib        Mount ~/projects/lib read-only at /workspaces/<cwd>/lib
+  claudo -m ~/projects/lib:rw     Mount read-write instead of read-only
+  claudo -m /src:/custom/path     Mount with explicit container path (read-only)
+  claudo -m /src:/custom/path:rw  Mount with explicit container path (read-write)
   claudo -m ~/p1 -m ~/p2          Mount multiple directories
   claudo -i claudo-base:latest    Use a different image
   claudo --host                   Start with host networking
@@ -333,6 +336,14 @@ fi
 
 # Additional mount points
 for mount_spec in "${mount_args[@]}"; do
+    # Check for :rw suffix (read-write mode)
+    if [[ "$mount_spec" == *":rw" ]]; then
+        mount_mode="rw"
+        mount_spec="${mount_spec%:rw}"  # Strip :rw suffix
+    else
+        mount_mode="ro"
+    fi
+
     if [[ "$mount_spec" == *":"* ]]; then
         # Explicit destination: /host/path:/container/path
         host_path="${mount_spec%%:*}"
@@ -351,7 +362,7 @@ for mount_spec in "${mount_args[@]}"; do
         echo "Error: Mount path does not exist: $host_path" >&2
         exit 1
     fi
-    docker_args+=(-v "$host_path:$container_path:ro")
+    docker_args+=(-v "$host_path:$container_path:$mount_mode")
 done
 
 if [[ "$tmp_mode" == true ]]; then

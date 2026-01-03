@@ -292,5 +292,34 @@ rm -rf "$tmpdir"
 echo "Testing --mount in help..."
 ./claudo --help | grep -q "\-m, --mount" && pass "--mount in help" || fail "--mount help"
 
+# Test: --mount with :rw suffix is read-write (auto destination)
+echo "Testing --mount with :rw is read-write..."
+tmpdir=$(mktemp -d)
+dir_name=$(basename "$(pwd)")
+output=$(./claudo -m "${tmpdir}:rw" -- touch "/workspaces/$dir_name/$(basename "$tmpdir")/testfile" 2>&1 || true)
+rm -rf "$tmpdir"
+[[ -z "$output" || "$output" != *"Read-only"* ]] && pass "--mount :rw is read-write" || fail "--mount :rw read-write: $output"
+
+# Test: --mount with explicit destination and :rw suffix
+echo "Testing --mount with explicit destination and :rw..."
+tmpdir=$(mktemp -d)
+output=$(./claudo -m "${tmpdir}:/custom/rw/path:rw" -- touch /custom/rw/path/testfile 2>&1 || true)
+rm -rf "$tmpdir"
+[[ -z "$output" || "$output" != *"Read-only"* ]] && pass "--mount explicit :rw is read-write" || fail "--mount explicit :rw: $output"
+
+# Test: --mount :rw in dry-run shows rw mode
+echo "Testing --mount :rw in dry-run..."
+tmpdir=$(mktemp -d)
+output=$(./claudo --dry-run -m "${tmpdir}:rw" -- echo test 2>&1)
+rm -rf "$tmpdir"
+[[ "$output" == *":rw"* ]] && pass "--mount :rw shows in dry-run" || fail "--mount :rw dry-run: $output"
+
+# Test: --mount without :rw shows :ro in dry-run
+echo "Testing --mount without :rw shows :ro in dry-run..."
+tmpdir=$(mktemp -d)
+output=$(./claudo --dry-run -m "$tmpdir" -- echo test 2>&1)
+rm -rf "$tmpdir"
+[[ "$output" == *":ro"* ]] && pass "--mount shows :ro in dry-run" || fail "--mount :ro dry-run: $output"
+
 echo
 echo "=== All tests passed ==="
