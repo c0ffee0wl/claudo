@@ -39,7 +39,7 @@ jobs:
       - name: Build image for testing
         run: |
           # No cache to ensure fresh dependencies
-          podman build --no-cache -t claudo:test .
+          podman build --no-cache --build-arg BUILD_TIME=$(date -u +%Y-%m-%dT%H:%M:%SZ) -t claudo:test .
 
       - name: Run tests
         run: |
@@ -52,4 +52,6 @@ jobs:
           context: .
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          build-args: |
+            BUILD_TIME=${{ github.run_id }}
           no-cache: true

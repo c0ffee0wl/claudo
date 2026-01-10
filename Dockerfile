@@ -94,7 +94,8 @@ USER claudo
 # Install markitdown CLI tool
 RUN /home/claudo/.local/bin/uv tool install "markitdown[pptx]"
 
-# Install Claude Code
+# Install Claude Code (ARG reference busts cache to get latest version)
+ARG BUILD_TIME
 RUN curl -fsSL https://claude.ai/install.sh | bash
 
 # Create symlink for fd (Ubuntu installs it as fdfind)
