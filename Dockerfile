@@ -104,4 +104,3 @@ COPY --chown=claudo:claudo entrypoint.sh /home/claudo/.local/bin/entrypoint.sh
 RUN chmod +x /home/claudo/.local/bin/entrypoint.sh
 
 ENTRYPOINT ["/home/claudo/.local/bin/entrypoint.sh"]
-
