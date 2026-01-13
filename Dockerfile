@@ -31,6 +31,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     tree \
     unzip \
     wget \
+    xxd \
     zsh \
     # Required for claude to be installed
     libatomic1 \
