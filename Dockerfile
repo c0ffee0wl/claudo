@@ -87,8 +87,13 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install Python packages not available in repos (needs root for --system)
 USER root
+
 RUN /home/claudo/.local/bin/uv pip install --system --break-system-packages \
     pypdf pdfplumber pytesseract pdf2image python-pptx python-docx
+
+# Install markdownlint globally
+RUN npm install -g markdownlint-cli2
+
 USER claudo
 
 # Install markitdown CLI tool
