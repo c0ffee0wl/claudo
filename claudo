@@ -260,6 +260,7 @@ fi
 docker_args=(
     run $tty_flag $remove_flag
     "${userns_args[@]}"
+    --log-driver none
     --hostname claudo
     -v "$HOME/.claudo:/claude-config"
     -v "$HOME/.claude/skills:/claude-config/skills:ro"
