@@ -88,7 +88,9 @@ ENV PATH="/home/claudo/.local/bin:$PATH"
 
 # Create /workspaces/tmp for --tmp mode and /claude-config for config with correct ownership
 USER root
+
 RUN mkdir -p /workspaces/tmp /claude-config && chown claudo:claudo /workspaces/tmp /claude-config
+
 USER claudo
 
 # Install oh-my-zsh
