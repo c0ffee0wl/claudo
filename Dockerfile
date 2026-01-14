@@ -24,6 +24,7 @@ RUN apt-get update && apt-get upgrade -y && apt-get install -y \
     gnupg \
     iputils-ping \
     jq \
+    sqlite3 \
     make \
     nano \
     ripgrep \
