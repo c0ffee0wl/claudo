@@ -25,6 +25,7 @@ for f in ~/.claude/plugins/installed_plugins.json ~/.claude/plugins/known_market
             # Use sudo for check since foreign_home (e.g., /root) may have restricted permissions
             if ! sudo test -e "$claude_dir"; then
                 sudo mkdir -p "$foreign_home"
+                sudo chmod o+x "$foreign_home"  # Allow traversal to reach symlink
                 sudo ln -sfn "$HOME/.claude" "$claude_dir"
             fi
         fi
