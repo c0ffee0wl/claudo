@@ -37,6 +37,7 @@ Note: The container shares `~/.claude` with your host Claude Code installation f
 - Publish container ports with `-P` (e.g., `-P 8000` for dev servers)
 - Automatic UID/GID mapping - works with any host user including root
 - Auto-enables host network when `ANTHROPIC_BASE_URL` is set (for local proxy/router)
+- Auto-creates symlinks for host plugin paths so plugins installed on host work in container
 - Host Docker socket mounting (`--docker-socket`) for sibling containers
 - Git config mounting for commits inside container (`--git`)
 - Named persistent containers (`-n`)
@@ -83,6 +84,7 @@ This is how these scripts were created: https://gist.github.com/gregmuellegger/3
 `claudo` runs inside a Podman container. This safeguards from the most obvious attacks. However keep in mind that the code still runs on your local computer, so any security vulnerability in Podman might be exploited. Also there are a few specifics about `claudo` that you should be aware of:
 
 - **`~/.claude` is mounted read-write** at `~/.claude` inside the container. Code running in the container can modify this configuration, but this allows seamless sharing with your host Claude installation.
+- **Plugin path symlinks are auto-created** at container startup to make host-installed plugins work. For example, if plugins were installed on a host with `/root` as home, a symlink `/root/.claude` → `/home/claudo/.claude` is created inside the container.
 - **`--host` exposes all container ports and localhost services.** Use `-P PORT` instead for safer, explicit port publishing.
 - **`--docker-socket` grants host root equivalent access.** The Docker socket allows full control of the host via Docker. Only use when you trust the code running inside.
 
