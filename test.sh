@@ -71,15 +71,15 @@ echo "Testing --tmp workdir is writable..."
 output=$(./claudo --tmp -- touch /workspaces/tmp/testfile 2>&1)
 [[ -z "$output" ]] && pass "--tmp workdir is writable" || fail "--tmp writable: $output"
 
-# Test: /claude-config is mounted
-echo "Testing /claude-config mount..."
-output=$(./claudo -- ls -la /claude-config 2>&1 || true)
-[[ "$output" != *"No such file"* ]] && pass "/claude-config is mounted" || fail "/claude-config mount: $output"
+# Test: ~/.claude is mounted
+echo "Testing ~/.claude mount..."
+output=$(./claudo -- ls -la /home/claudo/.claude 2>&1 || true)
+[[ "$output" != *"No such file"* ]] && pass "~/.claude is mounted" || fail "~/.claude mount: $output"
 
 # Test: CLAUDE_CONFIG_DIR is set
 echo "Testing CLAUDE_CONFIG_DIR is set..."
 output=$(./claudo -- printenv CLAUDE_CONFIG_DIR)
-[[ "$output" == "/claude-config" ]] && pass "CLAUDE_CONFIG_DIR is set" || fail "CLAUDE_CONFIG_DIR: $output"
+[[ "$output" == "/home/claudo/.claude" ]] && pass "CLAUDE_CONFIG_DIR is set" || fail "CLAUDE_CONFIG_DIR: $output"
 
 # Test: Container runs as UID 1000
 echo "Testing container runs as UID 1000..."
