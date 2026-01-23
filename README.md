@@ -18,7 +18,7 @@ At its core `claudo` is a shortcut that translates into this (plus a few more ad
 podman run -it --rm \
     --userns=keep-id:uid=1000,gid=1000 \
     --hostname claudo \
-    -v $HOME/.claudo:/claude-config \
+    -v $HOME/.claude:/claude-config \
     -v $HOME/.claude/skills:/claude-config/skills:ro \
     -e CLAUDE_CONFIG_DIR=/claude-config \
     -v $PWD:/workspaces/$(basename $PWD) \
@@ -27,15 +27,16 @@ podman run -it --rm \
     claude --dangerously-skip-permissions
 ```
 
-Note: The container uses `~/.claudo` (not `~/.claude`) on the host for its config, keeping it separate from your host Claude Code installation. Skills from `~/.claude/skills` are mounted read-only at `/claude-config/skills`.
+Note: The container shares `~/.claude` with your host Claude Code installation for seamless config persistence. Skills from `~/.claude/skills` are mounted read-only.
 
 ![claudo demo](demo/demo.gif)
 
 ## Features
 
 - Mounts the current directory into `/workspaces/`
-- Mounts `~/.claudo` at `/claude-config` for authentication persistence (no re-login required)
+- Mounts `~/.claude` at `/claude-config` for config persistence (no re-login required)
 - Mount additional directories with `-m` (read-only by default, append `:rw` for read-write)
+- Publish container ports with `-P` (e.g., `-P 8000` for dev servers)
 - Automatic UID/GID mapping - works with any host user including root
 - Host Docker socket mounting (`--docker-socket`) for sibling containers
 - Git config mounting for commits inside container (`--git`)
@@ -82,7 +83,8 @@ This is how these scripts were created: https://gist.github.com/gregmuellegger/3
 
 `claudo` runs inside a Podman container. This safeguards from the most obvious attacks. However keep in mind that the code still runs on your local computer, so any security vulnerability in Podman might be exploited. Also there are a few specifics about `claudo` that you should be aware of:
 
-- **`~/.claudo` is mounted read-write** as the container's Claude config directory. Code running in the container can modify this configuration. Your host's `~/.claude` is not directly exposed (only skills are shared read-only).
+- **`~/.claude` is mounted read-write** as the container's Claude config directory. Code running in the container can modify this configuration, but this allows seamless sharing with your host Claude installation.
+- **`--host` exposes all container ports and localhost services.** Use `-P PORT` instead for safer, explicit port publishing.
 - **`--docker-socket` grants host root equivalent access.** The Docker socket allows full control of the host via Docker. Only use when you trust the code running inside.
 
 The default image used is `ghcr.io/c0ffee0wl/claudo:latest`. It is based on Ubuntu 24.04 with Claude Code pre-installed. Includes common dev tools: git, ripgrep, fd, fzf, jq, make, nano, tree, zsh (with oh-my-zsh), Node.js, uv, and docker-cli.
@@ -106,6 +108,7 @@ claudo                        # run claude interactively
 claudo -- zsh                 # open zsh shell
 claudo -- claude --help       # run claude with args
 echo "fix the bug" | claudo   # pipe prompt to claude
+claudo -P 8000                # expose port 8000 for dev servers
 claudo --docker-socket        # use host Docker socket (sibling containers)
 ```
 
@@ -126,14 +129,19 @@ Usage: claudo [OPTIONS] [--] [COMMAND...]
 
 Options:
   -e KEY=VALUE    Set environment variable in container (can be used multiple times)
+  -m, --mount PATH  Mount additional directory inside current workspace (repeatable)
+                    Use PATH for auto-naming, or PATH:/container/path for explicit destination
+                    Append :rw for read-write (default is read-only): PATH:rw or PATH:/dest:rw
   -p, --prompt PROMPT  Run claude with -p (prompt mode)
+  -P, --port PORT Publish container port to host (repeatable, e.g. -P 8000 or -P 8000:8080)
   -i, --image IMG Use specified container image (default: $CLAUDO_IMAGE or built-in)
-  --host          Use host network mode
+  --host          Use host network mode (exposes all ports, less secure than -P)
   --no-sudo       Disable sudo (adds no-new-privileges restriction)
   --no-privileges Drop all capabilities (most restrictive)
   --no-network    Disable network access (breaks Claude Code)
   --docker-socket Mount host Docker socket (sibling containers, host root equivalent)
   --git           Mount git config (~/.gitconfig and credentials) for committing
+  --ssh           Mount SSH keys and forward SSH agent for GitHub auth
   --pull          Always pull the latest image before running
   -n, --name NAME Create a named container 'claudo-NAME' that persists after exit
   -a, --attach NAME  Attach to existing container 'claudo-NAME'
@@ -148,13 +156,21 @@ Arguments after -- are passed to claude if they start with -, otherwise as the c
 Examples:
   claudo                          Run claude --dangerously-skip-permissions (default)
   claudo -e API_KEY=xxx           Start with environment variable
+  claudo -m ~/projects/lib        Mount ~/projects/lib read-only at /workspaces/<cwd>/lib
+  claudo -m ~/projects/lib:rw     Mount read-write instead of read-only
+  claudo -m /src:/custom/path     Mount with explicit container path (read-only)
+  claudo -m /src:/custom/path:rw  Mount with explicit container path (read-write)
+  claudo -m ~/p1 -m ~/p2          Mount multiple directories
   claudo -i claudo-base:latest    Use a different image
-  claudo --host                   Start with host networking
+  claudo -P 8000                  Publish port 8000 to host
+  claudo -P 8000:8080             Map container port 8080 to host port 8000
+  claudo --host                   Start with host networking (all ports exposed)
   claudo --no-sudo                Start without sudo privileges
   claudo --no-privileges          Start with all caps dropped
   claudo --no-network             Start without network access
   claudo --docker-socket          Use host Docker socket (sibling containers)
   claudo --git                    Enable git commits from inside container
+  claudo --ssh                    Enable SSH auth for GitHub (plugins, git)
   claudo -n myproject             Start named persistent container
   claudo -a myproject             Attach to existing container
   claudo -- --resume              Resume a conversation (shows picker)
@@ -164,7 +180,7 @@ Examples:
   claudo -n dev -e DEBUG=1 -- -c  Combined options with claude flags
 
 The current directory is mounted at /workspaces/<dirname>.
-~/.claudo is mounted at /claude-config for container config.
+~/.claude is mounted at /claude-config for config persistence.
 ~/.claude/skills is mounted at /claude-config/skills (read-only).
 
 LLM API environment variables are automatically passed through if set:

@@ -12,8 +12,9 @@ Options:
                     Use PATH for auto-naming, or PATH:/container/path for explicit destination
                     Append :rw for read-write (default is read-only): PATH:rw or PATH:/dest:rw
   -p, --prompt PROMPT  Run claude with -p (prompt mode)
+  -P, --port PORT Publish container port to host (repeatable, e.g. -P 8000 or -P 8000:8080)
   -i, --image IMG Use specified container image (default: $CLAUDO_IMAGE or built-in)
-  --host          Use host network mode
+  --host          Use host network mode (exposes all ports, less secure than -P)
   --no-sudo       Disable sudo (adds no-new-privileges restriction)
   --no-privileges Drop all capabilities (most restrictive)
   --no-network    Disable network access (breaks Claude Code)
@@ -40,7 +41,9 @@ Examples:
   claudo -m /src:/custom/path:rw  Mount with explicit container path (read-write)
   claudo -m ~/p1 -m ~/p2          Mount multiple directories
   claudo -i claudo-base:latest    Use a different image
-  claudo --host                   Start with host networking
+  claudo -P 8000                  Publish port 8000 to host
+  claudo -P 8000:8080             Map container port 8080 to host port 8000
+  claudo --host                   Start with host networking (all ports exposed)
   claudo --no-sudo                Start without sudo privileges
   claudo --no-privileges          Start with all caps dropped
   claudo --no-network             Start without network access
@@ -56,7 +59,7 @@ Examples:
   claudo -n dev -e DEBUG=1 -- -c  Combined options with claude flags
 
 The current directory is mounted at /workspaces/<dirname>.
-~/.claudo is mounted at /claude-config for container config.
+~/.claude is mounted at /claude-config for config persistence.
 ~/.claude/skills is mounted at /claude-config/skills (read-only).
 
 LLM API environment variables are automatically passed through if set:
@@ -73,6 +76,7 @@ safe_dir_name="${dir_name//:/-}"
 env_args=()
 network_args=()
 mount_args=()
+port_args=()
 prompt_arg=""
 container_name=""
 attach_name=""
@@ -103,6 +107,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         -p|--prompt)
             prompt_arg="$2"
+            shift 2
+            ;;
+        -P|--port)
+            port_args+=("-p" "$2")
             shift 2
             ;;
         -i|--image)
@@ -228,8 +236,7 @@ fi
 
 # --- Build podman run command ---
 
-# Ensure config directories exist before mounting
-mkdir -p "$HOME/.claudo"
+# Ensure config directory exists before mounting
 mkdir -p "$HOME/.claude/skills"
 
 # Use -it if stdin is a terminal, otherwise just -i for piped input
@@ -262,7 +269,7 @@ docker_args=(
     "${userns_args[@]}"
     --log-driver none
     --hostname claudo
-    -v "$HOME/.claudo:/claude-config"
+    -v "$HOME/.claude:/claude-config"
     -v "$HOME/.claude/skills:/claude-config/skills:ro"
     -e "CLAUDE_CONFIG_DIR=/claude-config"
 )
@@ -379,6 +386,7 @@ fi
 
 docker_args+=("${env_args[@]}")
 docker_args+=("${network_args[@]}")
+docker_args+=("${port_args[@]}")
 # shellcheck disable=SC2086
 [[ -n "$docker_opts" ]] && docker_args+=($docker_opts)
 docker_args+=("$image")
