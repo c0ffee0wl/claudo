@@ -10,6 +10,21 @@ else
     echo "$required_flags" > "$config_file"
 fi
 
+# Fix plugin/marketplace paths - create symlinks for foreign home directories
+# This allows plugins installed on host (e.g., /root/.claude) to work in container (/home/claudo/.claude)
+for f in ~/.claude/plugins/installed_plugins.json ~/.claude/plugins/known_marketplaces.json ~/.claude.json; do
+    [[ -f "$f" ]] || continue
+    # Match any path containing /.claude (handles installPath, installLocation, etc.)
+    grep -oE '"/[^"]+/.claude[^"]*"' "$f" 2>/dev/null | tr -d '"' | \
+        sed 's|/.claude.*|/.claude|' | sort -u | while read -r claude_dir; do
+        foreign_home="${claude_dir%/.claude}"
+        if [[ -n "$foreign_home" && "$foreign_home" != "$HOME" && ! -e "$claude_dir" ]]; then
+            sudo mkdir -p "$foreign_home"
+            sudo ln -sfn "$HOME/.claude" "$claude_dir"
+        fi
+    done
+done
+
 if [[ $# -eq 0 ]]; then
     exec /bin/zsh -li
 elif [[ -t 0 ]]; then
