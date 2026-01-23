@@ -1,5 +1,8 @@
 #!/bin/zsh
 
+# Ensure hostname resolves (needed for sudo when using --host network mode)
+grep -q "$(hostname)" /etc/hosts 2>/dev/null || echo "127.0.0.1 $(hostname)" | sudo tee -a /etc/hosts >/dev/null 2>&1
+
 # Ensure Claude Code config has required flags to skip first-run prompts in piped mode
 config_file="$HOME/.claude/.claude.json"
 required_flags='{"hasCompletedOnboarding": true, "bypassPermissionsModeAccepted": true}'
