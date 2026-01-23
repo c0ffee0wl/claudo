@@ -18,23 +18,21 @@ At its core `claudo` is a shortcut that translates into this (plus a few more ad
 podman run -it --rm \
     --userns=keep-id:uid=1000,gid=1000 \
     --hostname claudo \
-    -v $HOME/.claude:/claude-config \
-    -v $HOME/.claude/skills:/claude-config/skills:ro \
-    -e CLAUDE_CONFIG_DIR=/claude-config \
+    -v $HOME/.claude:/home/claudo/.claude \
     -v $PWD:/workspaces/$(basename $PWD) \
     -w /workspaces/$(basename $PWD) \
     ghcr.io/c0ffee0wl/claudo:latest \
     claude --dangerously-skip-permissions
 ```
 
-Note: The container shares `~/.claude` with your host Claude Code installation for seamless config persistence. Skills from `~/.claude/skills` are mounted read-only.
+Note: The container shares `~/.claude` with your host Claude Code installation for seamless config persistence (including skills).
 
 ![claudo demo](demo/demo.gif)
 
 ## Features
 
 - Mounts the current directory into `/workspaces/`
-- Mounts `~/.claude` at `/claude-config` for config persistence (no re-login required)
+- Mounts `~/.claude` at `~/.claude` inside the container for config persistence (no re-login required)
 - Mount additional directories with `-m` (read-only by default, append `:rw` for read-write)
 - Publish container ports with `-P` (e.g., `-P 8000` for dev servers)
 - Automatic UID/GID mapping - works with any host user including root
@@ -83,7 +81,7 @@ This is how these scripts were created: https://gist.github.com/gregmuellegger/3
 
 `claudo` runs inside a Podman container. This safeguards from the most obvious attacks. However keep in mind that the code still runs on your local computer, so any security vulnerability in Podman might be exploited. Also there are a few specifics about `claudo` that you should be aware of:
 
-- **`~/.claude` is mounted read-write** as the container's Claude config directory. Code running in the container can modify this configuration, but this allows seamless sharing with your host Claude installation.
+- **`~/.claude` is mounted read-write** at `~/.claude` inside the container. Code running in the container can modify this configuration, but this allows seamless sharing with your host Claude installation.
 - **`--host` exposes all container ports and localhost services.** Use `-P PORT` instead for safer, explicit port publishing.
 - **`--docker-socket` grants host root equivalent access.** The Docker socket allows full control of the host via Docker. Only use when you trust the code running inside.
 
@@ -213,7 +211,7 @@ Your image must fulfill these requirements:
 - `claude` installed and on PATH
 - User home directory at `/home/claudo`
 - `/workspaces/` directory exists (for working directory mounts)
-- `/claude-config/` directory exists with correct ownership (for config and skills mounts)
+- `/home/claudo/.claude/` directory exists with correct ownership (for config mount)
 - For `--tmp` to work: `/workspaces/tmp/` needs to exist and writable for `claudo` user
 
 ### Forking

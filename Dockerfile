@@ -69,7 +69,7 @@ RUN userdel -r ubuntu 2>/dev/null || true \
 
 ENV HOSTNAME=claudo
 ENV TERM=xterm-256color
-ENV CLAUDE_CONFIG_DIR=/claude-config
+ENV CLAUDE_CONFIG_DIR=/home/claudo/.claude
 ENV BUILD_TIME="${BUILD_TIME}"
 ENV DO_NOT_TRACK=1
 ENV DISABLE_TELEMETRY=1
@@ -89,10 +89,10 @@ USER claudo
 WORKDIR /home/claudo
 ENV PATH="/home/claudo/.local/bin:$PATH"
 
-# Create /workspaces/tmp for --tmp mode and /claude-config for config with correct ownership
+# Create /workspaces/tmp for --tmp mode and ~/.claude for config with correct ownership
 USER root
 
-RUN mkdir -p /workspaces/tmp /claude-config && chown claudo:claudo /workspaces/tmp /claude-config
+RUN mkdir -p /workspaces/tmp /home/claudo/.claude && chown claudo:claudo /workspaces/tmp /home/claudo/.claude
 
 USER claudo
 

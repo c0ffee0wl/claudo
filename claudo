@@ -59,8 +59,7 @@ Examples:
   claudo -n dev -e DEBUG=1 -- -c  Combined options with claude flags
 
 The current directory is mounted at /workspaces/<dirname>.
-~/.claude is mounted at /claude-config for config persistence.
-~/.claude/skills is mounted at /claude-config/skills (read-only).
+~/.claude is mounted at ~/.claude inside the container for config persistence.
 
 LLM API environment variables are automatically passed through if set:
   ANTHROPIC_API_KEY, OPENAI_API_KEY, AZURE_OPENAI_API_KEY, GOOGLE_API_KEY,
@@ -237,7 +236,7 @@ fi
 # --- Build podman run command ---
 
 # Ensure config directory exists before mounting
-mkdir -p "$HOME/.claude/skills"
+mkdir -p "$HOME/.claude"
 
 # Use -it if stdin is a terminal, otherwise just -i for piped input
 if [[ -t 0 ]]; then
@@ -269,9 +268,7 @@ docker_args=(
     "${userns_args[@]}"
     --log-driver none
     --hostname claudo
-    -v "$HOME/.claude:/claude-config"
-    -v "$HOME/.claude/skills:/claude-config/skills:ro"
-    -e "CLAUDE_CONFIG_DIR=/claude-config"
+    -v "$HOME/.claude:/home/claudo/.claude"
 )
 
 # Auto-passthrough LLM API environment variables from host
