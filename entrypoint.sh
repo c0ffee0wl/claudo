@@ -21,9 +21,12 @@ for f in ~/.claude/plugins/installed_plugins.json ~/.claude/plugins/known_market
     grep -oE '"/[^"]+/.claude[^"]*"' "$f" 2>/dev/null | tr -d '"' | \
         sed 's|/.claude.*|/.claude|' | sort -u | while read -r claude_dir; do
         foreign_home="${claude_dir%/.claude}"
-        if [[ -n "$foreign_home" && "$foreign_home" != "$HOME" && ! -e "$claude_dir" ]]; then
-            sudo mkdir -p "$foreign_home"
-            sudo ln -sfn "$HOME/.claude" "$claude_dir"
+        if [[ -n "$foreign_home" && "$foreign_home" != "$HOME" ]]; then
+            # Use sudo for check since foreign_home (e.g., /root) may have restricted permissions
+            if ! sudo test -e "$claude_dir"; then
+                sudo mkdir -p "$foreign_home"
+                sudo ln -sfn "$HOME/.claude" "$claude_dir"
+            fi
         fi
     done
 done
