@@ -62,8 +62,9 @@ The current directory is mounted at /workspaces/<dirname>.
 ~/.claude is mounted at ~/.claude inside the container for config persistence.
 
 LLM API environment variables are automatically passed through if set:
-  ANTHROPIC_API_KEY, OPENAI_API_KEY, AZURE_OPENAI_API_KEY, GOOGLE_API_KEY,
-  GEMINI_API_KEY, MISTRAL_API_KEY, GROQ_API_KEY, and others (AWS, HuggingFace, etc.)
+  ANTHROPIC_API_KEY, ANTHROPIC_BASE_URL (for proxy/router), OPENAI_API_KEY,
+  AZURE_OPENAI_API_KEY, GOOGLE_API_KEY, GEMINI_API_KEY, MISTRAL_API_KEY,
+  GROQ_API_KEY, and others (AWS, HuggingFace, etc.)
 EOF
 }
 
@@ -235,6 +236,11 @@ fi
 
 # --- Build podman run command ---
 
+# Auto-enable host network if ANTHROPIC_BASE_URL is set (for proxy/router on localhost)
+if [[ -n "${ANTHROPIC_BASE_URL:-}" && ${#network_args[@]} -eq 0 && "$no_network" != true ]]; then
+    network_args=("--network" "host")
+fi
+
 # Ensure config directory exists before mounting
 mkdir -p "$HOME/.claude"
 
@@ -272,7 +278,7 @@ docker_args=(
 )
 
 # Auto-passthrough LLM API environment variables from host
-for var in ANTHROPIC_API_KEY ANTHROPIC_MODEL \
+for var in ANTHROPIC_API_KEY ANTHROPIC_BASE_URL ANTHROPIC_MODEL \
            OPENAI_API_KEY OPENAI_API_BASE OPENAI_ORG_ID \
            AZURE_OPENAI_API_KEY AZURE_OPENAI_ENDPOINT AZURE_OPENAI_API_VERSION \
            GOOGLE_API_KEY GEMINI_API_KEY \

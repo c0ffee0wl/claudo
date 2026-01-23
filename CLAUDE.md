@@ -28,6 +28,7 @@ just update-readme  # runs cogapp on the README.md
 - `-m PATH` mounts additional directories (read-only by default, append `:rw` for read-write)
 - `-P PORT` publishes container ports to host (safer alternative to `--host`)
 - Automatic UID/GID mapping via Podman user namespaces
+- Auto-enables `--host` network when `ANTHROPIC_BASE_URL` is set (for proxy/router)
 - `--tmp` runs isolated without mounting current directory
 - `--no-sudo` adds `no-new-privileges` security restriction
 - `--no-privileges` drops all Linux capabilities

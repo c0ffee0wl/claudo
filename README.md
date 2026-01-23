@@ -36,6 +36,7 @@ Note: The container shares `~/.claude` with your host Claude Code installation f
 - Mount additional directories with `-m` (read-only by default, append `:rw` for read-write)
 - Publish container ports with `-P` (e.g., `-P 8000` for dev servers)
 - Automatic UID/GID mapping - works with any host user including root
+- Auto-enables host network when `ANTHROPIC_BASE_URL` is set (for local proxy/router)
 - Host Docker socket mounting (`--docker-socket`) for sibling containers
 - Git config mounting for commits inside container (`--git`)
 - Named persistent containers (`-n`)
@@ -178,12 +179,12 @@ Examples:
   claudo -n dev -e DEBUG=1 -- -c  Combined options with claude flags
 
 The current directory is mounted at /workspaces/<dirname>.
-~/.claude is mounted at /claude-config for config persistence.
-~/.claude/skills is mounted at /claude-config/skills (read-only).
+~/.claude is mounted at ~/.claude inside the container for config persistence.
 
 LLM API environment variables are automatically passed through if set:
-  ANTHROPIC_API_KEY, OPENAI_API_KEY, AZURE_OPENAI_API_KEY, GOOGLE_API_KEY,
-  GEMINI_API_KEY, MISTRAL_API_KEY, GROQ_API_KEY, and others (AWS, HuggingFace, etc.)
+  ANTHROPIC_API_KEY, ANTHROPIC_BASE_URL (for proxy/router), OPENAI_API_KEY,
+  AZURE_OPENAI_API_KEY, GOOGLE_API_KEY, GEMINI_API_KEY, MISTRAL_API_KEY,
+  GROQ_API_KEY, and others (AWS, HuggingFace, etc.)
 ```
 <!--[[[end]]]-->
 
