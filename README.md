@@ -45,6 +45,8 @@ Note: The container shares `~/.claude` with your host Claude Code installation f
 - Isolated mode without directory mount (`--tmp`)
 - Custom image support (`-i` or `$CLAUDO_IMAGE`)
 - See the `podman run` command without executing it so you can inspect how it works under the hood (`--dry-run`)
+- Auto-update: checks for new image on every start, background pulls if available
+- Auto-cleanup: prunes dangling images on exit to prevent cache bloat
 
 ## Usecases
 
@@ -90,7 +92,7 @@ This is how these scripts were created: https://gist.github.com/gregmuellegger/3
 
 The default image used is `ghcr.io/c0ffee0wl/claudo:latest`. It is based on Ubuntu 24.04 with Claude Code pre-installed. Includes common dev tools: git, ripgrep, fd, fzf, jq, make, nano, tree, zsh (with oh-my-zsh), Node.js, uv, and docker-cli.
 
-The image is updated weekly to incorporate latest Ubuntu security patches (using `apt upgrade`). But you need to `claudo --pull` yourself to get the updates.
+The image is rebuilt daily to incorporate latest Ubuntu security patches and Claude Code updates. On every start, claudo checks for updates (~100-500ms) and pulls new images in the background if available. Use `claudo --pull` to force an immediate update.
 
 ## Installation
 
@@ -222,7 +224,7 @@ Your image must fulfill these requirements:
 The other approach is, to just fork this repo. Feel free to! Then review the
 Dockerfile, adjust it to your needs and push your fork. The Github Actions are
 setup so that the new image is built after push, and an updated image is created
-every week.
+daily.
 
 Then go ahead and either set `CLAUDO_IMAGE` or also adjust the `claudo` script
 of your fork to use your own image.

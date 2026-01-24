@@ -422,6 +422,28 @@ if [[ "$dry_run" == true ]]; then
     exit 0
 fi
 
+# --- Update check (every start, but only pull once per day) ---
+
+if [[ "$pull_mode" != true ]]; then
+    # Compare local vs remote digest (~100-500ms)
+    local_digest=$(podman image inspect "$image" --format '{{range .RepoDigests}}{{.}}{{end}}' 2>/dev/null | grep -o 'sha256:[a-f0-9]*' | head -1)
+    remote_digest=$(podman manifest inspect "$image" 2>/dev/null | grep -o 'sha256:[a-f0-9]*' | head -1)
+    if [[ -n "$local_digest" && -n "$remote_digest" && "$local_digest" != "$remote_digest" ]]; then
+        # Only background-pull once per day to avoid spamming
+        pull_marker="$HOME/.claude/.claudo-pulling"
+        marker_age=86400
+        if [[ ! -f "$pull_marker" ]] || \
+           (( $(date +%s) - $(stat -c %Y "$pull_marker" 2>/dev/null || stat -f %m "$pull_marker" 2>/dev/null || echo 0) > marker_age )); then
+            touch "$pull_marker"
+            echo "Update available, pulling in background..." >&2
+            (podman pull "$image" >/dev/null 2>&1 &)
+        fi
+    fi
+fi
+
 # --- Execute ---
+
+# Cleanup dangling images on exit (from previous background pulls)
+trap 'podman image prune -f >/dev/null 2>&1 &' EXIT
 
 podman "${docker_args[@]}"

@@ -33,6 +33,8 @@ just update-readme  # runs cogapp on the README.md
 - `--tmp` runs isolated without mounting current directory
 - `--no-sudo` adds `no-new-privileges` security restriction
 - `--no-privileges` drops all Linux capabilities
+- Auto-update: checks for new image on every start (~100-500ms), background pulls if available
+- Auto-cleanup: prunes dangling images on exit to prevent cache bloat
 
 ## Guidelines
 
